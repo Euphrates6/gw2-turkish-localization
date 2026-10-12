@@ -24,6 +24,10 @@ map_it.db; *_pt_br for Brazilian Portuguese).
 Developer commands (strumenti.bat options 4, 5 and 14): --export-review, --import-review and
 --show-keys text|all|off ("show keys" mode: with the file IT\\show_keys.txt the texts in the game
 start with their string ID, "44547 - Bambini"; the file holds "text" or "all", see patch_db).
+
+Contributors (file IT\\contributor.json, see editor.py): the correction page on 127.0.0.1 saves
+suggestions into map_it.db, shown in game at once and kept over the patch until the patch entry
+of their key changes (lt_server.SUGGESTIONS_SCHEMA).
 """
 from __future__ import annotations
 
@@ -45,6 +49,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))  # lt_server.py sits ne
 import lt_server as lt  # noqa: E402
 from patch_db import (CachePatch, PieceUpdater, SHOW_MODES, has_table, key_tag,  # noqa: E402
                       sync_key_tags)
+import editor  # noqa: E402
 
 VERSION = "0.9.0"        # version of the release: raise it at every new zip (shown in the log)
 PROTOCOL = 2              # Text Translator v0.2.0 (texts carry the hash of the English)
@@ -60,7 +65,8 @@ SHOW_KEYS_FILE = "show_keys.txt"  # in IT\: "show keys" mode (see patch_db.sync_
 
 def show_keys_mode(lang_dir: Path) -> str | None:
     """Mode of the "show keys" file: "all" if it says so (also "tutte"), otherwise "text";
-    None without the file. An empty file (made by hand by a helper) means "text"."""
+    None without the file. An empty file (made by hand by a helper) means "text". A contributor
+    sets it in IT\\contributor.json instead (editor.contributor), which wins over the file."""
     try:
         words = (lang_dir / SHOW_KEYS_FILE).read_text(encoding="utf-8", errors="replace").split()
     except OSError:
@@ -377,6 +383,7 @@ class Dispatcher:
         self.answered = 0
         self.show_keys = patch.show_keys         # answers start with "<key> - "
         self.arrived: dict[int, float] = {}      # key -> when it started waiting for the model
+        self.suggested: set[int] = set()         # keys answered with a suggestion, not sent yet
         self.stats = Stats(engine, stats_every)
         with engine.cv:
             engine.finished = []  # the worker now lists the lines of every finished batch
@@ -457,8 +464,15 @@ class Dispatcher:
                         self.stats.counts["empty"] += 1
                         out.append((key, src_hash, text, text))
                         continue
-                    fixed, stale = ((None, False) if self.ids.failed or self.patch.ids_failed()
-                                    else self.patch.lookup(key, src_hash))
+                    off = self.ids.failed or self.patch.ids_failed()
+                    s = None if off else self.patch.valid_suggestion(
+                        key, lt.hash_int(f"{src_hash:016x}"))
+                    if s is not None:  # a contributor's suggestion (not saved in the map)
+                        self.stats.counts["patch"] += 1
+                        self.suggested.add(key)
+                        out.append((key, src_hash, text, s.suggestion))
+                        continue
+                    fixed, stale = (None, False) if off else self.patch.lookup(key, src_hash)
                     if stale:  # English changed after the translation: translated locally
                         self.stats.stale += 1
                     if fixed is not None:
@@ -521,10 +535,14 @@ class Dispatcher:
                      self.answered, len(self.pending), len(self.engine.queue))
         if self.keymap and not self.ids.failed:
             try:
+                # answers from a suggestion stay out of the map: its texts keep the translation of
+                # the patch or of the model, the one undoing the suggestion goes back to
                 self.keymap.save([(k, en, it, "live") for k, _h, en, it in out
-                                   if en.strip() and en != it])
+                                   if en.strip() and en != it and k not in self.suggested])
+                self.keymap.learn_english([(k, en) for k, _h, en, _it in out if k in self.suggested])
             except Exception as exc:  # noqa: BLE001
                 log.debug("map save failed: %s", exc)
+        self.suggested.difference_update(k for k, _h, _en, _it in out)
 
 
 def cache_db_watcher(patch: CachePatch, cache_db: Path) -> None:
@@ -571,6 +589,8 @@ def main() -> int:
     ap.add_argument("--branch", default=lt.DEFAULT_BRANCH,
                     help="GitHub branch for glossary and patch (developers' tests; default main)")
     ap.add_argument("--debug", action="store_true")
+    ap.add_argument("--editor-port", type=int, default=editor.EDITOR_PORT, metavar="PORT",
+                    help="port of the correction page on 127.0.0.1, contributors only (0 = off)")
     ap.add_argument("--threads", type=int, default=None,
                     help="CPU threads for the model (default: a quarter of the CPUs, at most 2)")
     ap.add_argument("--stats-every", type=int, default=STATS_EVERY, metavar="SECONDS",
@@ -699,10 +719,14 @@ def main() -> int:
     t0 = time.perf_counter()
     patch = CachePatch(args.lang_dir / lang.file("patch", ".db"), CACHE_KEY, RESULT_VERSION)
     patch.glossary = glossary  # to know whether 'auto' was made with this glossary
-    patch.show_keys = show_keys_mode(args.lang_dir)
+    contrib = editor.contributor(args.lang_dir)
+    if contrib and contrib.show_keys is not editor.NOT_SET:
+        patch.show_keys, where = contrib.show_keys, editor.CONTRIBUTOR_FILE
+    else:
+        patch.show_keys, where = show_keys_mode(args.lang_dir), SHOW_KEYS_FILE
     if patch.show_keys:
         log.info("SHOW KEYS mode '%s' (%s): texts start with their string ID", patch.show_keys,
-                 SHOW_KEYS_FILE)
+                 where)
     try:
         patch.migrate(args.lang_dir)  # v0.4 files, or IT\\patch_it.json copied by option 7
     except Exception:  # noqa: BLE001 - the archive is still usable
@@ -730,6 +754,12 @@ def main() -> int:
                             args.cache_db)
     holder["d"] = dispatcher
     patch.sender = dispatcher.push  # patch texts the game must change are sent at once
+    if contrib and keymap:  # contributors: their suggestions count, and the correction page is on
+        patch.map_path, patch.suggestion_of = keymap.path, keymap.suggestion
+        log.info("contributor %s: suggestions on", contrib.author)
+        if args.editor_port:
+            editor.start(editor.Editor(patch, keymap, args.cache_db, CACHE_KEY, contrib.author),
+                         args.editor_port)
     ready.set()
     for req in early:
         dispatcher.submit(*req)
