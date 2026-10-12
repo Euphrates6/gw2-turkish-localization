@@ -6,8 +6,8 @@ This module brings the game into languages that Guild Wars 2 does not offer:
 
 | Language | Module | Download | Status |
 |---|---|---|---|
-| Italian | Italiano (Local Translator) | `Local_Translator_IT.zip` | early testing |
-| Brazilian Portuguese | Português do Brasil (Local Translator) | `Local_Translator_PT_BR.zip` | first test: it works, translations not reviewed yet |
+| Italian | Italiano (Local Translator) | `Local_Translator_<version>_IT.zip` | early testing |
+| Brazilian Portuguese | Português do Brasil (Local Translator) | `Local_Translator_<version>_PT_BR.zip` | first test: it works, translations not reviewed yet |
 
 ## What makes this module different
 
@@ -32,9 +32,11 @@ This module brings the game into languages that Guild Wars 2 does not offer:
 
 ## Installation
 
-1. Go to the [Releases](../../releases) page and download the zip of your language from its newest release:
-   - Italian: `Local_Translator_IT.zip`, from the release marked *Latest*;
-   - Brazilian Portuguese: `Local_Translator_PT_BR.zip`, from the newest release whose tag ends in `-pt-br`.
+1. Go to the [latest release](../../releases/latest) and download the zip of your language:
+   - Italian: `Local_Translator_<version>_IT.zip` (for example `Local_Translator_0.9.0_IT.zip`);
+   - Brazilian Portuguese: `Local_Translator_<version>_PT_BR.zip`.
+
+   These zips also set the module as active in Text Translator, with the recommended options. If you already use Text Translator and want to keep your settings, download instead `Local_Translator_<version>.zip` (all languages, Text Translator settings untouched), then choose the module in Text Translator's options, *Modules* tab.
 2. Extract it into your **Guild Wars 2** folder. The `addons` folder inside the zip merges with the one you already have; your other addons are not touched.
 3. Start the game. If needed, enable **Text Translator** from the Nexus addon list: the module of your language starts by itself.
 
@@ -49,7 +51,7 @@ On the very first start the model of your language is downloaded and loaded, whi
 
 ### Smooth play: *Pause Refreshes*
 
-Every time new translations arrive, Text Translator refreshes all the text in the game, and each refresh causes a short stutter (about one second, as the addon itself explains in its options). For this reason the zip turns on **Pause Refreshes** in Text Translator's options (*Settings* tab):
+Every time new translations arrive, Text Translator refreshes all the text in the game, and each refresh causes a short stutter (about one second, as the addon itself explains in its options). For this reason the language zips turn on **Pause Refreshes** in Text Translator's options (*Settings* tab):
 
 - with **Pause Refreshes on** (default): no stutters. Texts already translated are shown translated; a text seen for the first time stays in English until it appears again (for example, talking to the same NPC again), or until you press **Refresh Now**;
 - with **Pause Refreshes off**: new texts appear translated a moment after they show up, but the game stutters at each refresh. Raising *Refresh Debounce Time* makes refreshes less frequent.
