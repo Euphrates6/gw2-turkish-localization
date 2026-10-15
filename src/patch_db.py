@@ -7,8 +7,9 @@ patch_it.applied.json (as big as "auto"). Now:
 - the patch lives in patch_it.db: an answer is a lookup by key, nothing is loaded in memory;
 - cache.db is compared with the patch in SQL (ATTACH), only reading it: the rows the addon holds
   with another text are sent to the addon as translations it did not ask for (v0.8), so the game
-  shows them at once and the addon saves them in cache.db itself; texts the addon does not hold
-  yet are answered from the patch when it asks for them (lookup);
+  shows them at once and the addon saves them in cache.db itself; patch entries with a hash the
+  addon does not hold yet are sent too, so they are in Italian the first time they appear (the
+  others are answered from the patch when the addon asks for them: lookup);
 - a new version downloads only the pieces whose sha256 changed (lt_server.split_patch) and
   checks only their keys against cache.db;
 - the local registries (applied, skip, dropped, ids_failed) are tables instead of JSON files;
@@ -204,7 +205,7 @@ class CachePatch:
         # texts sent in this session (key -> text): the addon saves them in cache.db a moment
         # later, so an apply that runs before (start, glossary and patch checks close together)
         # would send them again
-        self._sent: dict[int, str] = {}
+        self._sent: dict[int, int] = {}  # key -> hash() of the text sent in this session
         # map_<lang>.db with the suggestions of a contributor (lt_server.SUGGESTIONS_SCHEMA), and
         # function(key) -> its last suggestion; set by the module, None: no suggestions
         self.map_path: Path | None = None
@@ -492,7 +493,7 @@ class CachePatch:
                 time.sleep(PUSH_PAUSE)
             block = rows[i:i + PUSH_BLOCK]
             sent += self.sender([(k, h % (1 << 64), t) for k, h, t in block])
-            self._sent.update((k, t) for k, _h, t in block)
+            self._sent.update((k, hash(t)) for k, _h, t in block)
         return sent
 
     def send_text(self, key: int, src_hash: int, text: str) -> int:
@@ -502,10 +503,12 @@ class CachePatch:
 
     def apply(self, db: Path | None, keys: set[int] | None = None) -> int:
         """Bring the game in line with the patch (all of it, or only `keys` after an update of
-        some pieces): the rows of cache.db with another text are sent to the addon, which shows
-        them at once and saves them; the rows to remove are deleted from cache.db.
+        some pieces): the rows of cache.db with another text, and the patch entries with a hash
+        that cache.db does not hold yet, are sent to the addon, which shows them at once and
+        saves them; the rows to remove are deleted from cache.db.
         Returns the texts sent + the rows removed."""
         push: list[tuple[int, int, str]] = []
+        new = 0
         with self.lock:
             with self.rlock:
                 empty = self.reader.execute("SELECT 1 FROM patch LIMIT 1").fetchone() is None
@@ -543,6 +546,17 @@ class CachePatch:
                     "AND coalesce(t.src_hash, 0) NOT IN (0, pt.src_hash)) "
                     f"AND NOT (pt.kind = {KIND_AUTO} AND ? AND pt.key IN (SELECT key FROM p.skip))"
                     + restrict.format("pt"), (ck, skip_on))
+                # patch texts the addon does not hold yet (never asked for): sent too, so they are
+                # in Italian the first time they appear. Only entries with the hash of the English
+                # text: the addon keeps it and uses the text only for that English text.
+                con.execute(
+                    f"INSERT OR IGNORE INTO temp.w SELECT pt.key, {shown}, pt.src_hash, pt.kind "
+                    f"FROM p.patch pt WHERE pt.kind IN ({KIND_REVIEWED}, {KIND_AUTO}) "
+                    "AND pt.src_hash IS NOT NULL AND pt.src_hash IS NOT 0 "
+                    "AND NOT EXISTS (SELECT 1 FROM main.translations t "
+                    "WHERE t.cache_key = ? AND t.id = pt.key) "
+                    f"AND NOT (pt.kind = {KIND_AUTO} AND ? AND pt.key IN (SELECT key FROM p.skip))"
+                    + restrict.format("pt"), (ck, skip_on))
                 con.execute("CREATE TEMP TABLE r (key INTEGER PRIMARY KEY)")
                 if has_auto:  # automatic texts in cache.db that are no longer published
                     con.execute(
@@ -567,13 +581,23 @@ class CachePatch:
                     con.execute("INSERT INTO temp.s " + self._suggestions_sql() + restrict.format("s"),
                                 (ck, self.version))
                     con.execute("DELETE FROM temp.w WHERE key IN (SELECT key FROM temp.s)")
+                    # keys the addon does not hold with a suggestion: answered when asked for
+                    con.execute("DELETE FROM temp.w WHERE key IN (SELECT key FROM m.suggestions) "
+                                "AND NOT EXISTS (SELECT 1 FROM main.translations t "
+                                "WHERE t.cache_key = ? AND t.id = temp.w.key)", (ck,))
                     con.execute("DELETE FROM temp.r WHERE key IN (SELECT key FROM temp.s)")
                     con.execute("INSERT INTO temp.w SELECT s.key, s.text, s.h, NULL FROM temp.s s "
                                 "JOIN main.translations t ON t.cache_key = ? AND t.id = s.key "
                                 "WHERE t.text IS NOT s.text", (ck,))
                 if self.sender:
                     push = [r for r in con.execute("SELECT key, h, text FROM temp.w ORDER BY key")
-                            if self._sent.get(r[0]) != r[2]]
+                            if self._sent.get(r[0]) != hash(r[2])]
+                    if push:
+                        fresh = {k for (k,) in con.execute(
+                            "SELECT w.key FROM temp.w w WHERE NOT EXISTS (SELECT 1 FROM "
+                            "main.translations t WHERE t.cache_key = ? AND t.id = w.key)", (ck,))}
+                        new = sum(1 for r in push if r[0] in fresh)
+                        del fresh
                 removed = self._delete_rows(con, "r")
                 # registries, in patch_it.db
                 con.execute("BEGIN")
@@ -620,7 +644,8 @@ class CachePatch:
             except Exception as exc:  # noqa: BLE001 - the addon asks again at the next start
                 log.warning("patch v%d: texts not sent to the game: %s", self.version, exc)
             if sent:
-                log.info("patch v%d: %d translations sent to the game", self.version, sent)
+                log.info("patch v%d: %d translations sent to the game (%d changed, %d new)",
+                         self.version, sent, len(push) - new, new)
         if removed:
             log.info("patch v%d: %d old translations removed from cache.db (visible at next game "
                      "start)", self.version, removed)
