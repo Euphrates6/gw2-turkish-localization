@@ -1,6 +1,6 @@
 {
  "format": 1,
- "version": 94,
+ "version": 95,
  "glossary": "38ab3a049a3b1f84",
  "width": 20000,
  "pieces": {
@@ -15,9 +15,9 @@
    "size": 379303
   },
   "p0002.json": {
-   "sha256": "56accdb141dbbf09000fca7c57148b976cacd122657fb7a9d003ebd40dcb9762",
+   "sha256": "ae0d2af03892aa6ec02c3d65ec9051de851895d494d587ae943a13a4076ed867",
    "entries": 3458,
-   "size": 325482
+   "size": 325495
   },
   "p0003.json": {
    "sha256": "9ebca74b65c8a401b76c417dbbf2159f9b3ee4ff64906af046b1bd3825034c3d",
@@ -60,9 +60,9 @@
    "size": 234379
   },
   "p0011.json": {
-   "sha256": "45b111f60b70b721387073b950ea07b921aa89571528e0969d056a027b028ec8",
+   "sha256": "c1de1506175fb358b60182d26aa26c6c0d4ea30373827b981f1646e409b018f8",
    "entries": 2754,
-   "size": 273148
+   "size": 273161
   },
   "p0012.json": {
    "sha256": "5a41e4d0801f7a61df140f81b808067da3fd0e8bfd5da262f536900ddeef38d2",
@@ -280,9 +280,9 @@
    "size": 288514
   },
   "p0055.json": {
-   "sha256": "1b212519b4ba15f575054db94498d6cf4ebab7d32840711d6a35c0127a3084b5",
+   "sha256": "12beecd6f90c5a6842f7f566f5b2cd1026af18d796217fcb121b90ac0a536bbf",
    "entries": 2088,
-   "size": 266036
+   "size": 266049
   },
   "p0056.json": {
    "sha256": "0dff1089c9534caa1a27abcc2e0ae5b58ca77821600a246179e2125ef3c73a3f",
