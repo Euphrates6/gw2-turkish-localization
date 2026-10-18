@@ -327,7 +327,7 @@ class CachePatch:
     def _skip_active(self) -> bool:
         """The skip table counts (lt_server.Patch._skipped): not with the player's glossary;
         with a fingerprinted patch until one made with the player's glossary arrives; without a
-        fingerprint (older option 6) only for the version it was written with."""
+        fingerprint (older option 5) only for the version it was written with."""
         if self.skip_version is None or self.auto_current():
             return False
         return bool(self.glossary_fp) or self.skip_version == self.version
@@ -745,7 +745,7 @@ class CachePatch:
     def migrate(self, lang_dir: Path) -> None:
         """First start of v0.5: import patch_it.json and the JSON registries of v0.4 (left on disk,
         never read again). Later starts: import patch_it.json again if it changed and is not
-        older (strumenti.bat option 7 copies the repository's patch there)."""
+        older (strumenti.bat option 6 copies the repository's patch there)."""
         pfile = lang_dir / lt.LANG.file("patch", ".json")
         if self.migrated:
             if not pfile.is_file():

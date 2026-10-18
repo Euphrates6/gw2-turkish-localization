@@ -21,7 +21,7 @@ Glossary, OPUS-MT engine and map come from lt_server.py, imported as a library; 
 Data lives in IT\\ (PT_BR\\...) next to this exe (model, glossary, patch_it.db, cache_it.jsonl,
 map_it.db; *_pt_br for Brazilian Portuguese).
 
-Developer commands (strumenti.bat options 4, 5 and 14): --export-review, --import-review and
+Developer commands (strumenti.bat option 32; the review ones are no longer used): --export-review, --import-review and
 --show-keys text|all|off ("show keys" mode: with the file IT\\show_keys.txt the texts in the game
 start with their string ID, "44547 - Bambini"; the file holds "text" or "all", see patch_db).
 
