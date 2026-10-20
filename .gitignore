@@ -241,3 +241,5 @@ TR/*.tmp
 target/
 test_sub_*/
 *.res
+
+steam_guide_icon.jpg
