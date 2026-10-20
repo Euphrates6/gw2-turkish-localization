@@ -20,6 +20,7 @@ import sys
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 import zipfile
 import zlib
@@ -29,7 +30,7 @@ from pathlib import Path
 
 import plurale_it  # Italian plural markers for names (same folder)
 
-GITHUB_REPO = "NikeGipple/gw2-nexus-local-translator"
+GITHUB_REPO = "Euphrates6/gw2-turkish-localization"
 DEFAULT_BRANCH = "main"  # the module can read another branch with --branch (tests)
 
 
@@ -71,6 +72,11 @@ LANGUAGES = {
                       {"Recipe": "Receita: ", "Recipes": "Receitas: ",
                        "Recipe[s]": 'Receita[pl:"Receitas"]: '},
                       r"(?:(?:o|a|os|as|um|uma|uns|umas) )", plural=False),
+    # model: OPUS-MT Tatoeba eng-tur (opus-tatoeba-en-tr)
+    "tr": Language("tr", "tr", "TR", "model-tr-v1/opus-mt-en-tr-ct2.zip",
+                   {"Recipe": "Tarif: ", "Recipes": "Tarifler: ",
+                    "Recipe[s]": 'Tarif[pl:"Tarifler"]: '},
+                   r"", plural=False),
 }
 LANG = LANGUAGES["it"]
 
@@ -176,6 +182,32 @@ def fix_percent(text: str, english: str | None = None) -> str:
     if english is not None and ("%" not in english or GARBLED_RE.search(english)):
         return text
     return PERCENT_RE.sub(lambda m: "%%" if m.group(0) == "%" else m.group(0), text)
+
+
+def fix_turkish_chars(text: str, mode: str = "off") -> str:
+    """Normalize Turkish characters for GW2's font engine.
+    'minimal': replaces only non-Latin-1 characters (ı, İ, ş, Ş, ğ, Ğ)
+    'full': replaces all accented Turkish characters (also ç, Ç, ö, Ö, ü, Ü) to
+            guarantee 100% readability across all game UI fonts (headers, tooltips).
+    'off': leaves text untouched.
+    """
+    if not text or mode == "off":
+        return text
+    # Non-Latin-1 Turkish characters (missing from GW2 English client):
+    text = (text.replace("ı", "i")
+                .replace("İ", "I")
+                .replace("ş", "s")
+                .replace("Ş", "S")
+                .replace("ğ", "g")
+                .replace("Ğ", "G"))
+    if mode == "full":
+        text = (text.replace("ç", "c")
+                    .replace("Ç", "C")
+                    .replace("ö", "o")
+                    .replace("Ö", "O")
+                    .replace("ü", "u")
+                    .replace("Ü", "U"))
+    return text
 
 
 # Double masculine/feminine forms written by the models ("Ladro/a", "pronto/a", "il/la"):
@@ -1323,6 +1355,207 @@ class CT2Translator:
         return [self.sp_tgt.decode(r.hypotheses[0]) for r in results]
 
 
+class GoogleTranslator:
+    """Translates via Google Translate web RPC with automatic batching."""
+
+    def __init__(self, target_lang: str = "tr") -> None:
+        self.target_lang = target_lang
+        self.lock = threading.Lock()
+
+    def _translate_single(self, text: str) -> str:
+        if not text or not text.strip():
+            return text
+        url = ("https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl="
+               + self.target_lang + "&dt=t&q=" + urllib.parse.quote(text))
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            return "".join(part[0] for part in data[0] if part and part[0])
+
+    def translate(self, texts: list[str]) -> list[str]:
+        if not texts:
+            return []
+        with self.lock:
+            try:
+                combined = "\n".join(texts)
+                url = ("https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl="
+                       + self.target_lang + "&dt=t&q=" + urllib.parse.quote(combined))
+                req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+                with urllib.request.urlopen(req, timeout=8) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    translated_all = "".join(part[0] for part in data[0] if part and part[0])
+                    lines = translated_all.split("\n")
+                    if len(lines) == len(texts):
+                        return lines
+            except Exception as exc:
+                log.warning("Google batch translate error, falling back to line-by-line: %s", exc)
+
+            out = []
+            for t in texts:
+                try:
+                    out.append(self._translate_single(t))
+                except Exception as exc:
+                    log.warning("Google translate failed for %r: %s", t, exc)
+                    out.append(t)
+            return out
+
+
+class DeepLTranslator:
+    """Translates using DeepL API (Free or Pro)."""
+
+    def __init__(self, api_key: str, target_lang: str = "TR") -> None:
+        self.api_key = api_key.strip()
+        self.target_lang = target_lang.upper()
+        self.endpoint = ("https://api-free.deepl.com/v2/translate"
+                         if self.api_key.endswith(":fx")
+                         else "https://api.deepl.com/v2/translate")
+        self.lock = threading.Lock()
+
+    def translate(self, texts: list[str]) -> list[str]:
+        if not texts:
+            return []
+        with self.lock:
+            try:
+                payload = json.dumps({
+                    "text": texts,
+                    "source_lang": "EN",
+                    "target_lang": self.target_lang
+                }).encode("utf-8")
+                req = urllib.request.Request(
+                    self.endpoint,
+                    data=payload,
+                    headers={
+                        "Authorization": f"DeepL-Auth-Key {self.api_key}",
+                        "Content-Type": "application/json",
+                        "User-Agent": "gw2-local-translator"
+                    }
+                )
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    return [item["text"] for item in data.get("translations", [])]
+            except Exception as exc:
+                log.warning("DeepL translate failed: %s", exc)
+                return texts
+
+
+class GeminiTranslator:
+    """Translates using Google Gemini API (Gemini 1.5 Flash)."""
+
+    def __init__(self, api_key: str, target_lang: str = "Turkish") -> None:
+        self.api_key = api_key.strip()
+        self.target_lang = target_lang
+        self.endpoint = (f"https://generativelanguage.googleapis.com/v1beta/models/"
+                         f"gemini-1.5-flash:generateContent?key={self.api_key}")
+        self.lock = threading.Lock()
+
+    def translate(self, texts: list[str]) -> list[str]:
+        if not texts:
+            return []
+        with self.lock:
+            prompt = (
+                f"You are a professional video game translator for Guild Wars 2.\n"
+                f"Translate the following list of English UI/dialogue texts into natural {self.target_lang}.\n"
+                f"CRITICAL RULES:\n"
+                f"1. Keep all game variables and markup exactly untouched (e.g. %num1%, %str1%, <c=...>, </c>, <br>).\n"
+                f"2. Return ONLY a valid JSON array of strings with the exact same length ({len(texts)}).\n\n"
+                f"Input JSON: " + json.dumps(texts, ensure_ascii=False)
+            )
+            try:
+                payload = json.dumps({
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {"response_mime_type": "application/json"}
+                }).encode("utf-8")
+                req = urllib.request.Request(
+                    self.endpoint,
+                    data=payload,
+                    headers={"Content-Type": "application/json"}
+                )
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    text_resp = data["candidates"][0]["content"]["parts"][0]["text"]
+                    parsed = json.loads(text_resp)
+                    if isinstance(parsed, list) and len(parsed) == len(texts):
+                        return [str(x) for x in parsed]
+            except Exception as exc:
+                log.warning("Gemini translate failed: %s", exc)
+            return texts
+
+
+class OpenAITranslator:
+    """Translates using OpenAI Chat Completions API (defaults to gpt-4o-mini)."""
+
+    def __init__(self, api_key: str, model: str = "gpt-4o-mini", target_lang: str = "Turkish") -> None:
+        self.api_key = api_key.strip()
+        self.model = model.strip() if model else "gpt-4o-mini"
+        self.target_lang = target_lang
+        self.endpoint = "https://api.openai.com/v1/chat/completions"
+        self.lock = threading.Lock()
+
+    def translate(self, texts: list[str]) -> list[str]:
+        if not texts:
+            return []
+        with self.lock:
+            prompt = (
+                f"You are a professional video game translator and localizer for Guild Wars 2.\n"
+                f"Translate the provided JSON list of English game texts into natural, fluent {self.target_lang}.\n"
+                f"CRITICAL RULES:\n"
+                f"1. Keep all game variables, placeholders and markup exactly intact (e.g. %num1%, %str1%, <c=...>, </c>, <br>).\n"
+                f"2. Output a JSON object with a single key 'translations' containing the array of translated strings with the exact same length ({len(texts)}).\n"
+                f"Example output: {{\"translations\": [\"...\", \"...\"]}}"
+            )
+            try:
+                payload = json.dumps({
+                    "model": self.model,
+                    "messages": [
+                        {"role": "system", "content": prompt},
+                        {"role": "user", "content": json.dumps({"texts": texts}, ensure_ascii=False)}
+                    ],
+                    "response_format": {"type": "json_object"},
+                    "temperature": 0.3
+                }).encode("utf-8")
+                req = urllib.request.Request(
+                    self.endpoint,
+                    data=payload,
+                    headers={
+                        "Content-Type": "application/json",
+                        "Authorization": f"Bearer {self.api_key}",
+                        "User-Agent": "gw2-local-translator"
+                    }
+                )
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    content = data["choices"][0]["message"]["content"]
+                    parsed = json.loads(content)
+                    translations = parsed.get("translations", [])
+                    if isinstance(translations, list) and len(translations) == len(texts):
+                        return [str(t) for t in translations]
+            except Exception as exc:
+                log.warning("OpenAI translate failed: %s", exc)
+            return texts
+
+
+CONFIG_FILE = "config.json"
+
+
+def get_config(module_dir: Path, lang_dir: Path) -> dict:
+    """Read config.json from lang_dir or module_dir."""
+    for p in (lang_dir / CONFIG_FILE, module_dir / CONFIG_FILE):
+        if p.is_file():
+            try:
+                return json.loads(p.read_text(encoding="utf-8"))
+            except Exception as exc:
+                log.warning("Could not parse %s: %s", p, exc)
+    return {}
+
+
+def save_config(target_file: Path, data: dict) -> None:
+    """Save config.json."""
+    try:
+        target_file.parent.mkdir(parents=True, exist_ok=True)
+        target_file.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    except Exception as exc:
+        log.warning("Could not save %s: %s", target_file, exc)
+
 def ensure_model(model_dir: Path, data_dir: Path, url: str) -> None:
     """Download and unpack the model on first run (no-op if it is already there)."""
     if (model_dir / "model.bin").is_file():
@@ -1373,6 +1606,7 @@ class Engine:
                  addon_db: Path | None = None, patch: "Patch | None" = None) -> None:
         self.translator, self.glossary = translator, glossary  # translator may be None until loaded
         self.cache: dict[str, str] = {}
+        self.char_mode: str = "off"
         self.queue: deque[str] = deque()
         self.queued: set[str] = set()
         self.cv = threading.Condition()
@@ -1687,7 +1921,11 @@ class Engine:
             out = masculine(fix_percent(out, line))
             if plural_name(line):
                 out = italian_plural(line, src, drop_article(out, src))
-            results[line] = feminine(out, self.glossary.feminine)
+            out = feminine(out, self.glossary.feminine)
+            if LANG.code == "tr":
+                mode = getattr(self, "char_mode", "off")
+                out = fix_turkish_chars(out, mode)
+            results[line] = out
         return results
 
 

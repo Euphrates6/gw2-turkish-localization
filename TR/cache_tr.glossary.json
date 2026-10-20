@@ -1,0 +1,25 @@
+{
+"terms": {
+"Lion's Arch": "Lion's Arch",
+"lion's arch": "lion's arch",
+"Lion's arch": "Lion's arch",
+"Tyria": "Tyria"
+},
+"exact": {
+"Waypoint": "Geçit Noktası (Waypoint)",
+"Account Bound": "Hesaba Bağlı",
+"Account Bound on Acquire": "Alındığında Hesaba Bağlı",
+"Account Bound on Use": "Kullanıldığında Hesaba Bağlı",
+"Soulbound": "Karaktere Bağlı",
+"Soulbound on Acquire": "Alındığında Karaktere Bağlı",
+"Soulbound on Use": "Kullanıldığında Karaktere Bağlı",
+"Junk": "Çöp",
+"Skin Unlocked": "Görünüm Açıldı",
+"Daily": "Günlük",
+"Weekly": "Haftalık",
+"Inventory": "Envanter",
+"Hero": "Kahraman",
+"Guild": "Lonca"
+},
+"protect": 5
+}

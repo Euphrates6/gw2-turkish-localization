@@ -54,7 +54,7 @@ import editor  # noqa: E402
 VERSION = "0.10.0"       # version of the release: raise it at every new zip (shown in the log)
 PROTOCOL = 2              # Text Translator v0.2.0 (texts carry the hash of the English)
 SOURCE_LANG = 0          # English: the game must be set to English
-RESULT_VERSION = 1       # raise it to make the addon ask again for every cached text
+RESULT_VERSION = 2       # raised to 2 so addon clears old broken character cache
 CACHE_KEY = lt.LANG.cache_key  # set by main() once the language is known
 MAX_MESSAGE = 0x10_0000
 KIND_TEXT, KIND_CANCEL = 0, 1
@@ -141,9 +141,13 @@ class Channel:
     def handshake(self) -> None:
         self.send([struct.pack("<IiI", PROTOCOL, SOURCE_LANG, RESULT_VERSION) + put_string(CACHE_KEY)])
 
-    @staticmethod
-    def text(key: int, src_hash: int, text: str) -> bytes:
+    CHAR_MODE = "off"
+
+    @classmethod
+    def text(cls, key: int, src_hash: int, text: str) -> bytes:
         """A translation; src_hash is the hash the addon sent with the English text."""
+        if lt.LANG.code == "tr":
+            text = lt.fix_turkish_chars(text, cls.CHAR_MODE)
         return bytes([KIND_TEXT]) + struct.pack("<IQ", key, src_hash) + put_string(text)
 
     @staticmethod
@@ -604,9 +608,14 @@ def main() -> int:
                     help=f"developers (game closed): 'show keys' mode: text (only real texts), "
                          f"all (templates too) or off ({SHOW_KEYS_FILE} in --lang-dir + prefixes "
                          f"in --cache-db), then exit")
+    ap.add_argument("--char-mode", choices=["full", "minimal", "off"], default="off",
+                    help="Turkish character normalization mode: off (default, authentic Turkish letters), minimal, full")
+    ap.add_argument("--backend", choices=["google", "deepl", "gemini", "openai", "local"], default=None,
+                    help="Translation backend: google, deepl, gemini, openai, local")
     # Unknown arguments (e.g. a newer module.toml with an older exe) must not stop the module:
     # argparse would exit before the log exists, and the game would stay untranslated.
     args, unknown = ap.parse_known_args()
+    Channel.CHAR_MODE = args.char_mode
 
     code = module_language(module_dir, args.lang)
     if code is None:
@@ -620,6 +629,11 @@ def main() -> int:
     CACHE_KEY = lang.cache_key
     if args.lang_dir is None:
         args.lang_dir = module_dir / lang.data_dir
+
+    cfg = lt.get_config(module_dir, args.lang_dir)
+    backend = args.backend or cfg.get("backend") or ("google" if code == "tr" else "local")
+    if "char_mode" in cfg and "--char-mode" not in sys.argv:
+        Channel.CHAR_MODE = cfg["char_mode"]
 
     if args.export_review:  # developer commands, not started by the addon
         n = lt.export_review(args.lang_dir / lang.file("map", ".db"),
@@ -742,6 +756,7 @@ def main() -> int:
              time.perf_counter() - t0)
     engine = ModuleEngine(lt.FakeTranslator() if fake else None, glossary,
                           args.lang_dir / lang.file("cache", ".jsonl"), args.cache_db, patch=patch)
+    engine.char_mode = Channel.CHAR_MODE
     keymap = None
     try:
         keymap = lt.KeyMap(args.lang_dir / lang.file("map", ".db"))
@@ -770,17 +785,50 @@ def main() -> int:
         log.info("TEST MODE: answering '[%s] text', no real translation", lang.label)
     else:
         def load_model() -> None:
-            model = args.lang_dir / "model"
-            try:
-                lt.ensure_model(model, args.lang_dir, lt.MODEL_URL)
-                threads = model_threads(args.threads)
-                translator = lt.CT2Translator(model, threads=threads)
-                with engine.cv:
-                    engine.translator = translator
-                    engine.cv.notify_all()  # wake the worker now, not at its next check
-                log.info("model loaded (%d threads)", threads)
-            except Exception:  # noqa: BLE001
-                log.exception("could not prepare the translation model in %s", model)
+            nonlocal backend
+            translator = None
+            if backend == "google":
+                log.info("using Google Translate backend (free web RPC)")
+                translator = lt.GoogleTranslator(target_lang=lang.code)
+            elif backend == "deepl":
+                api_key = cfg.get("deepl_api_key", "").strip()
+                if not api_key:
+                    log.warning("DeepL backend selected but deepl_api_key is empty in config.json; falling back to Google")
+                    translator = lt.GoogleTranslator(target_lang=lang.code)
+                else:
+                    log.info("using DeepL API backend")
+                    translator = lt.DeepLTranslator(api_key=api_key, target_lang=lang.code)
+            elif backend == "gemini":
+                api_key = cfg.get("gemini_api_key", "").strip()
+                if not api_key:
+                    log.warning("Gemini backend selected but gemini_api_key is empty in config.json; falling back to Google")
+                    translator = lt.GoogleTranslator(target_lang=lang.code)
+                else:
+                    log.info("using Gemini API backend")
+                    translator = lt.GeminiTranslator(api_key=api_key)
+            elif backend == "openai":
+                api_key = cfg.get("openai_api_key", "").strip()
+                if not api_key:
+                    log.warning("OpenAI backend selected but openai_api_key is empty in config.json; falling back to Google")
+                    translator = lt.GoogleTranslator(target_lang=lang.code)
+                else:
+                    model_name = cfg.get("openai_model", "gpt-4o-mini").strip()
+                    log.info("using OpenAI API backend (model %s)", model_name)
+                    translator = lt.OpenAITranslator(api_key=api_key, model=model_name)
+            else:  # "local"
+                model = args.lang_dir / "model"
+                try:
+                    lt.ensure_model(model, args.lang_dir, lt.MODEL_URL)
+                    threads = model_threads(args.threads)
+                    translator = lt.CT2Translator(model, threads=threads)
+                    log.info("local model loaded (%d threads)", threads)
+                except Exception:
+                    log.exception("could not prepare local model in %s, falling back to Google", model)
+                    translator = lt.GoogleTranslator(target_lang=lang.code)
+
+            with engine.cv:
+                engine.translator = translator
+                engine.cv.notify_all()
         threading.Thread(target=load_model, daemon=True, name="model-loader").start()
 
     threading.Thread(target=cache_db_watcher, args=(patch, args.cache_db), daemon=True,

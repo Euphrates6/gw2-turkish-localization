@@ -230,3 +230,14 @@ Claude outputs/
 *.csv
 # Master patch (patch_<lang>.json): local only, modules read the pieces in patch/<lang>/
 patch/patch_*.json
+
+# Release artifacts and caches
+release_package/
+TR/model/
+TR/*.db
+TR/*.db-*
+TR/*.jsonl
+TR/*.tmp
+target/
+test_sub_*/
+*.res

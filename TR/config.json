@@ -1,0 +1,8 @@
+{
+  "backend": "google",
+  "deepl_api_key": "",
+  "gemini_api_key": "",
+  "openai_api_key": "",
+  "openai_model": "gpt-4o-mini",
+  "char_mode": "off"
+}
