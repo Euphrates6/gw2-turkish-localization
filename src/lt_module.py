@@ -75,7 +75,39 @@ def show_keys_mode(lang_dir: Path) -> str | None:
 
 TRIVIAL_RE = re.compile(r"\(\(\d+\)\)|\(new string\)")
 
+CHAT_CHANNEL_RE = re.compile(
+    r'^(?:\[\d{1,2}:\d{2}(?::\d{2})?\]\s*)?'  # optional timestamp [12:34] or [12:34:56]
+    r'(?:<c=[^>]*>)?'                       # optional color tag
+    r'\[(?:Map|Say|Party|Squad|Guild|Team|Whisper|Shout|Local|Emote|W to [^\]]+|W from [^\]]+|[MPSGTW])\]' # channel tag
+    r'(?:</c>)?',
+    re.IGNORECASE
+)
+
+EMOTE_RE = re.compile(
+    r'^\s*%\s*str\d+%\s+(?:waves|cheers|dances|points|salutes|bows|kneels|laughs|cries|shouts|whispers|tells|says|flexes|sleeps|sits|stands|applauds|beckons|begs|bored|bounces|brb|cheer|clap|comfort|cower|cry|cuddle|dance|facepalm|fistbump|flex|flirt|gasp|gears|giggle|groan|grumble|headache|hiccup|highfive|hug|kiss|kneel|laugh|no|pat|point|ponder|pout|ready|sad|salute|scared|shiver|shrug|sigh|sit|sleep|smirk|snarl|sneeze|sorrow|spit|stomp|stretch|surprised|taunt|thanks|thank|threaten|thumbsdown|thumbsup|tired|upset|wave|welcome|whine|whistle|wink|yawn|yay|yes)\b',
+    re.IGNORECASE
+)
+
+VOCAL_CALLOUT_RE = re.compile(
+    r'^\s*\((?:laugh|cheer|sigh|grunt|giggle|chuckle|yawn|groan|snort|cough)\)',
+    re.IGNORECASE
+)
+
+WHISPER_RE = re.compile(
+    r'(?:\bwhispers:\s+|\bwhispered:\s+)',
+    re.IGNORECASE
+)
+
+
+def is_chat_or_player_message(text: str) -> bool:
+    """Return True if text looks like an in-game chat message, emote, or vocal shout that should not be translated."""
+    if not text:
+        return False
+    t = text.strip()
+    return bool(CHAT_CHANNEL_RE.search(t) or EMOTE_RE.search(t) or VOCAL_CALLOUT_RE.search(t) or WHISPER_RE.search(t))
+
 log = logging.getLogger("lt")
+
 
 
 # --------------------------------------------------------------------------- #
@@ -376,8 +408,10 @@ class Dispatcher:
 
     def __init__(self, engine: ModuleEngine, patch: CachePatch, keymap: lt.KeyMap | None,
                  channel: Channel, stats_every: float = STATS_EVERY,
-                 cache_db: Path | None = None) -> None:
+                 cache_db: Path | None = None, translate_chat: bool = False) -> None:
         self.engine, self.patch, self.keymap, self.channel = engine, patch, keymap, channel
+        self.translate_chat = translate_chat
+
         self.inbox: queue.SimpleQueue[tuple[int, int, str]] = queue.SimpleQueue()
         self.pending: dict[int, tuple[str, int]] = {}  # key -> (English, hash), waiting for the model
         self.missing: dict[int, set[str]] = {}   # key -> lines not translated yet
@@ -468,6 +502,11 @@ class Dispatcher:
                         self.stats.counts["empty"] += 1
                         out.append((key, src_hash, text, text))
                         continue
+                    if not self.translate_chat and is_chat_or_player_message(text):
+                        self.stats.counts["empty"] += 1
+                        out.append((key, src_hash, text, text))
+                        continue
+
                     off = self.ids.failed or self.patch.ids_failed()
                     s = None if off else self.patch.valid_suggestion(
                         key, lt.hash_int(f"{src_hash:016x}"))
@@ -612,6 +651,9 @@ def main() -> int:
                     help="Turkish character normalization mode: off (default, authentic Turkish letters), minimal, full")
     ap.add_argument("--backend", choices=["google", "deepl", "gemini", "openai", "local"], default=None,
                     help="Translation backend: google, deepl, gemini, openai, local")
+    ap.add_argument("--translate-chat", action="store_true", default=None,
+                    help="translate player and chat channel messages (default: False)")
+
     # Unknown arguments (e.g. a newer module.toml with an older exe) must not stop the module:
     # argparse would exit before the log exists, and the game would stay untranslated.
     args, unknown = ap.parse_known_args()
@@ -765,8 +807,11 @@ def main() -> int:
     except Exception as exc:  # noqa: BLE001
         log.warning("map disabled: %s", exc)
 
+    translate_chat = args.translate_chat if args.translate_chat is not None else cfg.get("translate_chat", False)
+    log.info("translate chat messages: %s", "on" if translate_chat else "off (chat preserved as-is)")
     dispatcher = Dispatcher(engine, patch, keymap, channel, max(10, args.stats_every),
-                            args.cache_db)
+                            args.cache_db, translate_chat=translate_chat)
+
     holder["d"] = dispatcher
     patch.sender = dispatcher.push  # patch texts the game must change are sent at once
     if contrib and keymap:  # contributors: their suggestions count, and the correction page is on

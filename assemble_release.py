@@ -43,7 +43,8 @@ def assemble():
         "gemini_api_key": "",
         "openai_api_key": "",
         "openai_model": "gpt-4o-mini",
-        "char_mode": "off"
+        "char_mode": "off",
+        "translate_chat": False
     }
     (tr_dest / "config.json").write_text(json.dumps(config_data, indent=2, ensure_ascii=False), encoding="utf-8")
 
@@ -76,10 +77,18 @@ def assemble():
         print(f"Copied version.dll from {version_src}")
 
     # Copy model
-    model_src = BASE_DIR / "TR" / "model"
+    model_candidates = [
+        BASE_DIR / "TR" / "model",
+        Path("C:/Users/firat/.gemini/antigravity-ide/scratch/gw2-local-translator-tr/TR/model"),
+        Path("E:/GuildWars2/addons/text_translator/modules/local_translator_tr/TR/model"),
+    ]
     model_dest = tr_dest / "model"
     if not model_dest.exists():
-        shutil.copytree(model_src, model_dest)
+        for cand in model_candidates:
+            if cand.exists():
+                shutil.copytree(cand, model_dest)
+                print(f"Copied model from {cand}")
+                break
 
     # Main module.toml
     main_toml = """name = "Turkce (Google Ceviri - Varsayilan)"

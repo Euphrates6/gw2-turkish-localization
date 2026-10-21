@@ -4,5 +4,6 @@
   "gemini_api_key": "",
   "openai_api_key": "",
   "openai_model": "gpt-4o-mini",
-  "char_mode": "off"
+  "char_mode": "off",
+  "translate_chat": false
 }
