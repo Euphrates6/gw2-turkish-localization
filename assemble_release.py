@@ -49,65 +49,36 @@ def assemble():
     (tr_dest / "config.json").write_text(json.dumps(config_data, indent=2, ensure_ascii=False), encoding="utf-8")
 
     # Copy text_translator.dll (Nexus Text Translator addon)
-    translator_candidates = [
-        RELEASE_DIR / "addons" / "text_translator.dll",
-        Path("C:/Users/firat/.gemini/antigravity-ide/scratch/gw2-local-translator-tr/release_package/addons/text_translator.dll"),
-        Path("E:/GuildWars2/addons/text_translator.dll"),
-    ]
-    for cand in translator_candidates:
-        if cand.exists():
-            if cand.resolve() != (RELEASE_DIR / "addons" / "text_translator.dll").resolve():
-                shutil.copy2(cand, RELEASE_DIR / "addons" / "text_translator.dll")
-            print(f"Copied text_translator.dll from {cand}")
-            break
+    translator_src = RELEASE_DIR / "addons" / "text_translator.dll"
+    if translator_src.exists():
+        print(f"Using text_translator.dll from {translator_src}")
 
     # Copy turkish_font.dll if present
-    font_candidates = [
-        Path("C:/Users/firat/.gemini/antigravity-ide/scratch/gw2-turkish-font/addon/turkish_font.dll"),
-        Path("E:/GuildWars2/addons/turkish_font.dll"),
-    ]
-    for cand in font_candidates:
-        if cand.exists():
-            shutil.copy2(cand, RELEASE_DIR / "addons" / "turkish_font.dll")
-            print(f"Copied turkish_font.dll from {cand}")
-            break
+    font_src = BASE_DIR / "font-addon" / "turkish_font.dll"
+    font_dest = RELEASE_DIR / "addons" / "turkish_font.dll"
+    if font_src.exists():
+        shutil.copy2(font_src, font_dest)
+        print(f"Copied turkish_font.dll from {font_src}")
 
     # Copy d3d11.dll (Nexus) if present
-    nexus_candidates = [
-        Path("E:/GuildWars2_mod_backup_20261021/d3d11.dll"),
-        Path("E:/GuildWars2/d3d11.dll"),
-    ]
-    for cand in nexus_candidates:
-        if cand.exists():
-            shutil.copy2(cand, RELEASE_DIR / "d3d11.dll")
-            print(f"Copied d3d11.dll (Nexus) from {cand}")
-            break
+    nexus_src = RELEASE_DIR / "d3d11.dll"
+    if nexus_src.exists():
+        print(f"Using d3d11.dll (Nexus) from {nexus_src}")
 
     # Copy version.dll (Early-boot Turkish font injector & Nexus bridge loader)
-    version_candidates = [
-        BASE_DIR / "loader" / "target" / "release" / "version.dll",
-        Path("C:/Users/firat/.gemini/antigravity-ide/scratch/gw2-nexus-loader/target/release/version.dll"),
-        Path("E:/GuildWars2/version.dll"),
-    ]
-    for cand in version_candidates:
-        if cand.exists():
-            shutil.copy2(cand, RELEASE_DIR / "version.dll")
-            print(f"Copied version.dll from {cand}")
-            break
+    version_src = BASE_DIR / "loader" / "target" / "release" / "version.dll"
+    if version_src.exists():
+        shutil.copy2(version_src, RELEASE_DIR / "version.dll")
+        print(f"Copied version.dll from {version_src}")
+    elif (RELEASE_DIR / "version.dll").exists():
+        print(f"Using existing version.dll in {RELEASE_DIR / 'version.dll'}")
 
     # Copy model
-    model_candidates = [
-        BASE_DIR / "TR" / "model",
-        Path("C:/Users/firat/.gemini/antigravity-ide/scratch/gw2-local-translator-tr/TR/model"),
-        Path("E:/GuildWars2/addons/text_translator/modules/local_translator_tr/TR/model"),
-    ]
+    model_src = BASE_DIR / "TR" / "model"
     model_dest = tr_dest / "model"
-    if not model_dest.exists():
-        for cand in model_candidates:
-            if cand.exists():
-                shutil.copytree(cand, model_dest)
-                print(f"Copied model from {cand}")
-                break
+    if not model_dest.exists() and model_src.exists():
+        shutil.copytree(model_src, model_dest)
+        print(f"Copied model from {model_src}")
 
     # Main module.toml
     main_toml = """name = "Turkce (Google Ceviri - Varsayilan)"
