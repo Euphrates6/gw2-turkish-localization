@@ -647,8 +647,8 @@ def main() -> int:
                     help=f"developers (game closed): 'show keys' mode: text (only real texts), "
                          f"all (templates too) or off ({SHOW_KEYS_FILE} in --lang-dir + prefixes "
                          f"in --cache-db), then exit")
-    ap.add_argument("--char-mode", choices=["full", "minimal", "off"], default="off",
-                    help="Turkish character normalization mode: off (default, authentic Turkish letters), minimal, full")
+    ap.add_argument("--char-mode", choices=["smart", "full", "minimal", "off"], default="smart",
+                    help="Turkish character normalization mode: smart (default, fixes dropped ş/ğ/İ while keeping ç/ö/ü/ı), minimal, full, off")
     ap.add_argument("--backend", choices=["google", "deepl", "gemini", "openai", "local"], default=None,
                     help="Translation backend: google, deepl, gemini, openai, local")
     ap.add_argument("--translate-chat", action="store_true", default=None,

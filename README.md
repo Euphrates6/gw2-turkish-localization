@@ -61,6 +61,14 @@ En güncel, kullanıma hazır hepsi-bir-arada sürümü indirmek için:
 ### Çeviri Motorunu Değiştirme
 `addons\text_translator\modules\local_translator_tr\` klasöründeki **`Ceviri_Motoru_Secici.bat`** dosyasını çift tıklayarak Google, DeepL, Gemini, OpenAI veya Yerel Model arasında tek tuşla geçiş yapabilirsiniz.
 
+### Çeviri Modunu Oyun İçinde Açıp Kapatma (Anlık Toggle Kısayolu)
+İngilizce terimleri, wiki aramalarını veya yetenek isimlerini orijinal dilinde görmek için oyundan çıkmadan tek tuşla Türkçe ve İngilizce arasında geçiş yapabilirsiniz:
+1. Oyunda **`Ctrl + O`** tuşuna basarak Nexus menüsünü açın.
+2. Üstteki **`Keybinds`** sekmesine geçin.
+3. **Text Translator** altındaki **`Toggle Show Translated`** seçeneğini bulun.
+4. Yanındaki boş kutucuğa tıklayarak dilediğiniz bir kısayol tuşu atayın (Örn: **`Alt + T`**, **`F11`** veya **`Pause/Break`**).
+5. Bu tuşa her bastığınızda oyun RAM seviyesinde anında Türkçe ve orijinal İngilizce arasında geçiş yapar.
+
 ---
 
 ## Proje Mimarisi

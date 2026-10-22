@@ -184,22 +184,25 @@ def fix_percent(text: str, english: str | None = None) -> str:
     return PERCENT_RE.sub(lambda m: "%%" if m.group(0) == "%" else m.group(0), text)
 
 
-def fix_turkish_chars(text: str, mode: str = "off") -> str:
+def fix_turkish_chars(text: str, mode: str = "smart") -> str:
     """Normalize Turkish characters for GW2's font engine.
-    'minimal': replaces only non-Latin-1 characters (ı, İ, ş, Ş, ğ, Ğ)
+    'smart': Replaces ONLY the glyphs that GW2's font engine drops (ş, Ş, ğ, Ğ, İ),
+             while preserving 100% authentic ç, Ç, ö, Ö, ü, Ü, ı which GW2 natively renders!
+    'minimal': replaces non-Latin-1 characters (including ı -> i)
     'full': replaces all accented Turkish characters (also ç, Ç, ö, Ö, ü, Ü) to
             guarantee 100% readability across all game UI fonts (headers, tooltips).
     'off': leaves text untouched.
     """
     if not text or mode == "off":
         return text
-    # Non-Latin-1 Turkish characters (missing from GW2 English client):
-    text = (text.replace("ı", "i")
-                .replace("İ", "I")
-                .replace("ş", "s")
+    # Characters that GW2 English font engine natively lacks and drops/skips:
+    text = (text.replace("ş", "s")
                 .replace("Ş", "S")
                 .replace("ğ", "g")
-                .replace("Ğ", "G"))
+                .replace("Ğ", "G")
+                .replace("İ", "I"))
+    if mode in ("minimal", "full"):
+        text = text.replace("ı", "i")
     if mode == "full":
         text = (text.replace("ç", "c")
                     .replace("Ç", "C")

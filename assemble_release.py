@@ -48,6 +48,19 @@ def assemble():
     }
     (tr_dest / "config.json").write_text(json.dumps(config_data, indent=2, ensure_ascii=False), encoding="utf-8")
 
+    # Copy text_translator.dll (Nexus Text Translator addon)
+    translator_candidates = [
+        RELEASE_DIR / "addons" / "text_translator.dll",
+        Path("C:/Users/firat/.gemini/antigravity-ide/scratch/gw2-local-translator-tr/release_package/addons/text_translator.dll"),
+        Path("E:/GuildWars2/addons/text_translator.dll"),
+    ]
+    for cand in translator_candidates:
+        if cand.exists():
+            if cand.resolve() != (RELEASE_DIR / "addons" / "text_translator.dll").resolve():
+                shutil.copy2(cand, RELEASE_DIR / "addons" / "text_translator.dll")
+            print(f"Copied text_translator.dll from {cand}")
+            break
+
     # Copy turkish_font.dll if present
     font_candidates = [
         Path("C:/Users/firat/.gemini/antigravity-ide/scratch/gw2-turkish-font/addon/turkish_font.dll"),
@@ -70,11 +83,17 @@ def assemble():
             print(f"Copied d3d11.dll (Nexus) from {cand}")
             break
 
-    # Copy version.dll (Nexus bridge loader for Epic Games & Standalone)
-    version_src = Path("C:/Users/firat/.gemini/antigravity-ide/scratch/gw2-nexus-loader/target/release/version.dll")
-    if version_src.exists():
-        shutil.copy2(version_src, RELEASE_DIR / "version.dll")
-        print(f"Copied version.dll from {version_src}")
+    # Copy version.dll (Early-boot Turkish font injector & Nexus bridge loader)
+    version_candidates = [
+        BASE_DIR / "loader" / "target" / "release" / "version.dll",
+        Path("C:/Users/firat/.gemini/antigravity-ide/scratch/gw2-nexus-loader/target/release/version.dll"),
+        Path("E:/GuildWars2/version.dll"),
+    ]
+    for cand in version_candidates:
+        if cand.exists():
+            shutil.copy2(cand, RELEASE_DIR / "version.dll")
+            print(f"Copied version.dll from {cand}")
+            break
 
     # Copy model
     model_candidates = [
@@ -175,12 +194,11 @@ Bu mod, Raidcore Nexus uzerinden calisan 'Text Translator' eklentisini
 kullanarak Guild Wars 2 oyununu anlik olarak Turkceye cevirir.
 
 [YAPILAN IYILESTIRMELER]:
-1. Tam Turkce Karakter ve Font Destegi (turkish_font.dll):
-   - GW2 font motoruna entegre calisan turkish_font.dll sayesinde tum
-     Turkce karakterler (c, C, g, G, i, I, o, O, s, S, u, U) hicbir eksik
-     veya kutucuk olmadan, orijinal oyun fontlariyla %100 dogal gorunur.
-   - Harfleri kirpmaya veya normallestirmeye gerek kalmadan tam Turkce
-     metinler sunulur (char_mode: off).
+1. Tam Orijinal Turkce Font Enjeksiyonu (version.dll):
+   - Gw2-64.exe calistigi ilk mikrosaniyede devreye giren ozel kanca sayesinde,
+     oyundaki 156 font boyutunun tamamina Latin Extended-A atlaslari enjekte edilir.
+   - Harfleri kirpmaya veya degistirmeye gerek kalmadan tum Turkce karakterler
+     (c, C, g, G, i, I, o, O, s, S, u, U) %100 orijinal ve dogal gorunur (char_mode: off).
 
 2. Coklu Ceviri Motoru (Backend) Destegi:
    - Google Ceviri (Varsayilan, ucretsiz, limitsiz ve cok hizli).
@@ -202,6 +220,15 @@ kullanarak Guild Wars 2 oyununu anlik olarak Turkceye cevirir.
   "google", "deepl", "gemini", "openai" veya "local" yapabilirsiniz.
 - Yontem 3: Oyun icinde Nexus menusu (varsayilan Alt+Shift+T veya ~ tusu) ->
   Text Translator -> Modules kismindan istediginiz motoru secip baslatabilirsiniz.
+
+[OYUN ICINDE CEVIRIYI ACIP KAPATMA (TOGGLE KISAYOLU)]:
+Orijinal Ingilizce terimleri gormek istediginizde oyunu kapatmadan aninda
+Turkce ile Ingilizce arasinda gecis yapabilirsiniz:
+1. Oyun icinde klavyenizden "Ctrl + O" tusuna basarak Nexus menusunu acin.
+2. Ust kisimdaki "Keybinds" sekmesine gelin.
+3. Listeden "Text Translator" altindaki "Toggle Show Translated" secenegini bulun.
+4. Yanindaki kutucuga tiklayip istediginiz bir tusu (ornek: Alt + T veya F11) atayin.
+5. Artik bu tusa her bastiginizda oyun anlik olarak Turkce ve Ingilizce arasinda degisir!
 
 Iyi oyunlar dileriz!
 ========================================================================

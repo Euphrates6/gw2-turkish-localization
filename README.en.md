@@ -60,6 +60,14 @@ Switch translation backends with a single click depending on your preference and
 ### Switching Translation Engines
 Open `addons\text_translator\modules\local_translator_tr\` and run **`Ceviri_Motoru_Secici.bat`** to switch between Google, DeepL, Gemini, OpenAI, or the Offline model with a single keystroke.
 
+### Toggling Translation On/Off In-Game (Instant Toggle Keybind)
+To view original English item names, skill tooltips, or wiki terms without restarting the game, you can switch between Turkish and English with a single keypress:
+1. In-game, press **`Ctrl + O`** to open the Nexus overlay.
+2. Navigate to the **`Keybinds`** tab.
+3. Locate **`Toggle Show Translated`** under the **Text Translator** header.
+4. Click the input box and press your preferred shortcut key (e.g., **`Alt + T`**, **`F11`**, or **`Pause/Break`**).
+5. Now, pressing that key in-game instantly toggles translations in real-time.
+
 ---
 
 ## Repository Architecture
