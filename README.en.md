@@ -131,7 +131,8 @@ python create_zip.py
 
 This project is built upon the invaluable contributions of the open-source and Guild Wars 2 modding communities:
 
-* **[ideka](https://github.com/ideka)**: Original creator of the [Text Translator](https://github.com/ideka/text-translator-public) Nexus addon and the [GW2 Local Translator](https://github.com/ideka/gw2-local-translator) module architecture.
+* **[ideka](https://github.com/ideka)**: Original author of the [Text Translator](https://github.com/ideka/text-translator-public) Nexus addon and the [module protocol](https://github.com/ideka/modulep).
+* **[NikeGipple](https://github.com/NikeGipple)**: Creator of the [GW2 Local Translator](https://github.com/NikeGipple/gw2-nexus-local-translator) module project and base architecture.
 * **[nourlie](https://github.com/nourlie)**: Research on `Gw2.dat` AFNT font chunk structure, decompressor analysis, and memory injection patterns in [GlyphCore](https://github.com/nourlie/GlyphCore).
 * **[morluto](https://github.com/morluto)**: Reverse engineering tooling and research via [REA](https://github.com/morluto/rea).
 * **[Raidcore Team](https://raidcore.gg/Nexus)**: The incredible Nexus D3D11 Addon Engine for Guild Wars 2.

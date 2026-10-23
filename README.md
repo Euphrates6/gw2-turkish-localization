@@ -132,7 +132,8 @@ python create_zip.py
 
 Bu proje, açık kaynak topluluğunun değerli çalışmaları üzerine inşa edilmiştir:
 
-* **[ideka](https://github.com/ideka)**: Temel alınan [Text Translator](https://github.com/ideka/text-translator-public) Nexus eklentisi ve [GW2 Local Translator](https://github.com/ideka/gw2-local-translator) modül protokolü mimarisi.
+* **[ideka](https://github.com/ideka)**: Guild Wars 2 için geliştirilen temel [Text Translator](https://github.com/ideka/text-translator-public) Nexus eklentisi ve [modül protokolü](https://github.com/ideka/modulep).
+* **[NikeGipple](https://github.com/NikeGipple)**: Temel alınan açık kaynaklı [GW2 Local Translator](https://github.com/NikeGipple/gw2-nexus-local-translator) yerel çeviri modülü mimarisi ve altyapısı.
 * **[nourlie](https://github.com/nourlie)**: [GlyphCore](https://github.com/nourlie/GlyphCore) projesiyle `Gw2.dat` AFNT font chunk yapısı, decompressor analizi ve bellek enjeksiyonu keşifleri.
 * **[morluto](https://github.com/morluto)**: [REA (Reverse Engineering Assistant)](https://github.com/morluto/rea) analiz araçları.
 * **[Raidcore Ekibi](https://raidcore.gg/Nexus)**: Guild Wars 2 için geliştirilen harika Nexus D3D11 Addon Engine.
