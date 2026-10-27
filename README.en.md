@@ -8,10 +8,10 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%20(64--bit)-blue.svg)]()
 [![Storefront](https://img.shields.io/badge/Storefront-Epic%20Games%20%7C%20Steam%20%7C%20Standalone-purple.svg)]()
 [![Framework](https://img.shields.io/badge/Framework-Raidcore%20Nexus-orange.svg)](https://raidcore.gg/Nexus)
-[![Release](https://img.shields.io/badge/Release-v0.10.0--TR-brightgreen.svg)](../../releases/latest)
+[![Release](https://img.shields.io/badge/Release-v0.11.0--TR-brightgreen.svg)](../../releases/latest)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A comprehensive **Turkish localization suite, a 156-font in-memory font injector**, and an **Epic Games Store / Steam / Standalone compatible universal bridge loader** designed for Guild Wars 2.
+A comprehensive **Turkish localization suite, a 1-click standalone installer and control panel, a 156-font in-memory font injector**, and an **Epic Games Store / Steam / Standalone compatible universal bridge loader** designed for Guild Wars 2.
 
 It restores and dynamically renders all missing Turkish glyphs (**ç, Ç, ğ, Ğ, ı, İ, ö, Ö, ş, Ş, ü, Ü**) across all 156 font sizes without missing boxes (`[]`) or question marks, while providing real-time in-game translation for dialogues, quests, UI, and story text.
 
@@ -19,32 +19,40 @@ It restores and dynamically renders all missing Turkish glyphs (**ç, Ç, ğ, Ğ
 
 ## Download
 
-To download the latest, all-in-one, ready-to-play release:
+Choose your preferred installation method:
 
-[**Download Local_Translator_0.10.0_TR.zip (GitHub Releases)**](../../releases/latest) *(~267 MB)*
+* 🚀 **[Recommended] [Download GW2_Turkce_Yama.exe (GitHub Releases)](../../releases/latest)** *(1-Click Standalone Installer & Control Panel)*
+  * Automatically detects your Guild Wars 2 installation (Steam, Epic Games, Standalone).
+  * 1-click install, update, backend configuration, and clean uninstall.
+* 📦 **[Download Local_Translator_0.11.0_TR.zip (GitHub Releases)](../../releases/latest)** *(Ultra-Light Manual Package - 17.8 MB)*
 
 ---
 
 ## Key Features
 
-### 1. 100% Native Turkish Font Engine (`turkish_font.dll`)
+### 1. Standalone 1-Click Installer & Control Panel (`GW2_Turkce_Yama.exe`)
+* Zero addon management or zip extraction needed by players.
+* Automatically detects Steam, Epic Games Store, and ArenaNet Standalone game paths.
+* 1-click switching between Google Translate, DeepL, Gemini AI, and OpenAI GPT.
+* 1-click launch game or clean uninstall to restore vanilla game.
+
+### 2. 100% Native Turkish Font Engine (`turkish_font.dll` & `version.dll`)
 * Analyzed all **156 font sizes** stored in `Gw2.dat` and dynamically rasterized extended Latin glyphs (Range 2: Latin Extended-A) using vector font rendering (`fontdue`).
 * Hooks into the in-memory `FileArchive::ReadFile` routine to inject Turkish character atlases at runtime without modifying game files on disk.
 * No need to downgrade or transliterate letters (`s, i, g`); characters render cleanly in the game's authentic visual style.
 
-### 2. Universal Bridge Loader (`version.dll`)
+### 3. Universal Bridge Loader (`version.dll`)
 * A lightweight, zero-dependency Rust DLL proxy that bypasses client restrictions where `d3d11.dll` is skipped (notably in **Epic Games Store** `-eglv2` and modern launchers).
 * Automatically invoked via `Gw2-64.exe` static import tables during startup; transparently chainloads **Raidcore Nexus**, the **Turkish Font Injector**, and the **Translation Server**.
 
-### 3. Multi-Backend Translation Engines
+### 4. Multi-Backend Translation Engines
 Switch translation backends with a single click depending on your preference and hardware:
 * **Google Translate (Default):** 100% free, unlimited, fast, and requires zero API setup.
 * **DeepL API:** High-precision, context-aware game translation (requires Free or Pro API key).
 * **Google Gemini AI:** Fluid, natural translations powered by Google Gemini 1.5 Flash.
 * **OpenAI GPT:** Supports GPT-4o-mini and GPT-4o.
-* **Offline Local Model:** Zero internet dependency running locally on-device via Helsinki-NLP Opus-MT and CTranslate2.
 
-### 4. Safe & Zero Ban Risk
+### 5. Safe & Zero Ban Risk
 * Zero physical modifications to `Gw2.dat` or game binaries.
 * Adheres strictly to ArenaNet third-party program policies via standard Windows DLL forwarding and the Raidcore Nexus ecosystem.
 
@@ -52,7 +60,13 @@ Switch translation backends with a single click depending on your preference and
 
 ## Quick Installation
 
-1. Download `Local_Translator_0.10.0_TR.zip` from the [**Releases**](../../releases/latest) page.
+### Method 1: 1-Click Installer (Recommended)
+1. Download `GW2_Turkce_Yama.exe` from the [**Releases**](../../releases/latest) page.
+2. Run the executable. It will automatically detect your game directory. Click **"Türkçe Yamayı Kur"** (Install).
+3. Click **"Oyunu Başlat"** (Launch Game) and enjoy Guild Wars 2 in Turkish!
+
+### Method 2: Manual Installation
+1. Download `Local_Translator_0.11.0_TR.zip` from the [**Releases**](../../releases/latest) page.
 2. Extract all contents (`version.dll`, `d3d11.dll`, `addons/`, etc.) directly into your **Guild Wars 2 root directory** (where `Gw2-64.exe` is located).
 3. Launch the game normally via Epic Games Launcher, Steam, or the Standalone client.
 4. In-game, press **`Ctrl + O`** (or click the Nexus icon in the top-left corner) to open the Nexus overlay and manage addons.

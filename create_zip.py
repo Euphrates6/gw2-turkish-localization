@@ -2,7 +2,7 @@ import zipfile
 from pathlib import Path
 
 def create_zip():
-    zip_path = Path("Local_Translator_0.10.0_TR.zip")
+    zip_path = Path("Local_Translator_0.11.0_TR.zip")
     root = Path("release_package")
     print("Compressing release package...")
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as z:

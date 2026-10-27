@@ -9,10 +9,10 @@
 [![Platform](https://img.shields.io/badge/Platform-Windows%20(64--bit)-blue.svg)]()
 [![Storefront](https://img.shields.io/badge/Storefront-Epic%20Games%20%7C%20Steam%20%7C%20Standalone-purple.svg)]()
 [![Nexus](https://img.shields.io/badge/Framework-Raidcore%20Nexus-orange.svg)](https://raidcore.gg/Nexus)
-[![Release](https://img.shields.io/badge/Release-v0.10.0--TR-brightgreen.svg)](../../releases/latest)
+[![Release](https://img.shields.io/badge/Release-v0.11.0--TR-brightgreen.svg)](../../releases/latest)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Guild Wars 2 için geliştirilmiş **tam kapsamlı Türkçe yerelleştirme paketi, 156 font boyutunu kapsayan Türkçe font enjektörü** ve Epic Games Store / Steam / Standalone istemcilerle %100 uyumlu **evrensel köprü yükleyicisi**.
+Guild Wars 2 için geliştirilmiş **tam kapsamlı Türkçe yerelleştirme paketi, bağımsız tek tıkla kurucu paneli, 156 font boyutunu kapsayan Türkçe font enjektörü** ve Epic Games Store / Steam / Standalone istemcilerle %100 uyumlu **evrensel köprü yükleyicisi**.
 
 Oyunun İngilizce istemcisinde eksik olan tüm Türkçe karakterleri (**ç, Ç, ğ, Ğ, ı, İ, ö, Ö, ş, Ş, ü, Ü**) oyunun orijinal yazı tipleriyle eksiksiz gösterir ve diyalogları, görevleri, arayüzü anlık olarak Türkçeye çevirir.
 
@@ -20,42 +20,56 @@ Oyunun İngilizce istemcisinde eksik olan tüm Türkçe karakterleri (**ç, Ç, 
 
 ## İndir / Download
 
-En güncel, kullanıma hazır hepsi-bir-arada sürümü indirmek için:
+En güncel sürümü indirmek için aşağıdaki seçeneklerden birini kullanabilirsiniz:
 
-[**Local_Translator_0.10.0_TR.zip İndir (GitHub Releases)**](../../releases/latest) *(~267 MB)*
+* 🚀 **[Önerilen] [GW2_Turkce_Yama.exe İndir (GitHub Releases)](../../releases/latest)** *(Tek Tıkla Bağımsız Kurucu & Kontrol Paneli)*
+  * Oyunu (Steam, Epic, Standalone) otomatik bulur.
+  * Tek tıkla kurar, günceller, çeviri motorunu ayarlar veya oyunu orijinal haline döndürür.
+* 📦 **[Local_Translator_0.11.0_TR.zip İndir (GitHub Releases)](../../releases/latest)** *(Ultra-Light Manuel Kurulum - 17.8 MB)*
 
 ---
 
 ## Temel Özellikler
 
-### 1. %100 Orijinal Türkçe Font Desteği (`turkish_font.dll`)
+### 1. Bağımsız Tek Tıkla Kurucu & Kontrol Paneli (`GW2_Turkce_Yama.exe`)
+* Oyuncuları zip açma, klasör arama ve addon menüleriyle uğraştırmaz.
+* Steam, Epic Games ve Registry üzerindeki Guild Wars 2 kurulumlarını otomatik tespit eder.
+* İstendiğinde tek tıkla Google Çeviri, DeepL, Gemini veya OpenAI GPT arasında geçiş yapmanızı sağlar.
+* Tek tıkla oyunu başlatabilir veya yamayı tamamen kaldırabilirsiniz.
+
+### 2. %100 Orijinal Türkçe Font Desteği (`turkish_font.dll` & `version.dll`)
 * Guild Wars 2'nin `Gw2.dat` arşivindeki **156 font boyutunun tamamı** analiz edilmiş ve genişletilmiş Latin glifleri (Range 2: Latin Extended-A) `fontdue` vektörel motoruyla rasterize edilmiştir.
 * Oyun dosyalarına fiziksel zarar vermeden, bellek içi (RAM) `FileArchive::ReadFile` fonksiyonunu yönlendirerek Türkçe karakterleri orijinal oyun fontu kalitesinde ekrana çizer.
 * Harfleri kırpmaya veya İngilizceye benzetmeye (`s, i, g`) gerek kalmaz; kutucuk veya soru işareti hatası oluşmaz.
 
-### 2. Evrensel Köprü Yükleyici (`version.dll`)
+### 3. Evrensel Köprü Yükleyici (`version.dll`)
 * Guild Wars 2'nin özellikle **Epic Games Store** (`-eglv2`) ve yeni istemcilerde `d3d11.dll` dosyasını güvenlik sebebiyle atlamasını engelleyen Rust tabanlı, sıfır bağımlılıklı şeffaf bir köprüdür.
 * `Gw2-64.exe`'nin statik import tablosundan faydalanarak oyun başlarken otomatik devreye girer; **Nexus**, **Türkçe Font Enjektörü** ve **Çeviri Motorunu** doğrudan oyuna bağlar.
 
-### 3. Çoklu Çeviri Motoru (Multi-Backend Support)
+### 4. Çoklu Çeviri Motoru (Multi-Backend Support)
 İhtiyacınıza ve donanımınıza göre tek tıkla çeviri motorunu değiştirebilirsiniz:
 * **Google Çeviri (Varsayılan):** Tamamen ücretsiz, sınırsız, kurulum gerektirmez ve son derece hızlıdır.
 * **DeepL API:** Yüksek kaliteli, profesyonel oyun çevirisi (Ücretsiz veya Pro API anahtarı gerektirir).
 * **Google Gemini AI:** Google Gemini 1.5 Flash ile son derece doğal ve akıcı yapay zeka çevirisi.
 * **OpenAI GPT:** GPT-4o-mini / GPT-4o yapay zeka motoru.
-* **Yerel Çevrimdışı Model:** Helsinki-NLP Opus-MT ve CTranslate2 altyapısıyla internet gerektirmeyen cihaz içi çeviri.
 
-### 4. Güvenli ve Sıfır Ban Riski
+### 5. Güvenli ve Sıfır Ban Riski
 * `Gw2.dat` oyun veri tabanını fiziksel olarak modifiye etmez.
 * Raidcore Nexus ekosistemi ve güvenli Windows DLL yönlendirmesiyle çalışır; ArenaNet üçüncü parti kullanım politikalarıyla tam uyumludur.
 
 ---
 
-## Kurulum (Tek Adımda Kolay Kurulum)
+## Kurulum
 
-1. [**Releases**](../../releases/latest) sayfasından `Local_Translator_0.10.0_TR.zip` dosyasını indirin.
+### Yöntem 1: Tek Tıkla Kurulum (Önerilen)
+1. [**Releases**](../../releases/latest) sayfasından `GW2_Turkce_Yama.exe` dosyasını indirin ve çalıştırın.
+2. Program oyun klasörünüzü otomatik olarak bulacaktır. **"Türkçe Yamayı Kur"** butonuna tıklayın.
+3. **"Oyunu Başlat"** butonuna tıklayarak doğrudan Türkçe oynamaya başlayın!
+
+### Yöntem 2: Manuel Kurulum
+1. [**Releases**](../../releases/latest) sayfasından `Local_Translator_0.11.0_TR.zip` dosyasını indirin.
 2. Zip içerisindeki tüm dosya ve klasörleri (`version.dll`, `d3d11.dll`, `addons/` vb.) doğrudan **Guild Wars 2 oyununuzun kurulu olduğu ana klasöre** (`Gw2-64.exe` dosyasının yanına) çıkartın.
-3. Oyunu her zamanki gibi başlatın (Epic Games Launcher, Steam veya Standalone).
+3. Oyunu her zamanki gibi başlatın.
 4. Oyuna girdikten sonra klavyenizden **`Ctrl + O`** tuşuna basarak (veya sol üstteki Nexus simgesine tıklayarak) Nexus menüsünü açabilir, eklentilerinizi yönetebilirsiniz.
 
 ### Çeviri Motorunu Değiştirme
