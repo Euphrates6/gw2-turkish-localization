@@ -4,7 +4,7 @@ from pathlib import Path
 BASE_DIR = Path(SPECPATH).resolve().parent
 
 datas = [
-    (str(BASE_DIR / 'Local_Translator_0.11.0_TR.zip'), '.'),
+    (str(BASE_DIR / 'Local_Translator_Cevrimici_TR.zip'), '.'),
 ]
 
 binaries = []
@@ -40,7 +40,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='GW2_Turkce_Yama',
+    name='GW2_Turkce_Yama_Cevrimici',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

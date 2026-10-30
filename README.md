@@ -12,30 +12,52 @@
 [![Release](https://img.shields.io/badge/Release-v0.11.0--TR-brightgreen.svg)](../../releases/latest)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Guild Wars 2 için geliştirilmiş **tam kapsamlı Türkçe yerelleştirme paketi, bağımsız tek tıkla kurucu paneli, 156 font boyutunu kapsayan Türkçe font enjektörü** ve Epic Games Store / Steam / Standalone istemcilerle %100 uyumlu **evrensel köprü yükleyicisi**.
+Guild Wars 2 için geliştirilmiş **tam kapsamlı Türkçe yerelleştirme paketi, iki ayrı bağımsız tek tıkla kurucu paneli (Çevrimdışı & Çevrimiçi), 156 font boyutunu kapsayan Türkçe font enjektörü** ve Epic Games Store / Steam / Standalone istemcilerle %100 uyumlu **evrensel köprü yükleyicisi**.
 
 Oyunun İngilizce istemcisinde eksik olan tüm Türkçe karakterleri (**ç, Ç, ğ, Ğ, ı, İ, ö, Ö, ş, Ş, ü, Ü**) oyunun orijinal yazı tipleriyle eksiksiz gösterir ve diyalogları, görevleri, arayüzü anlık olarak Türkçeye çevirir.
 
 ---
 
-## İndir / Download
+## 🚀 İki Ayrı Kurulum Seçeneği / Two Installation Editions
 
-En güncel sürümü indirmek için aşağıdaki seçeneklerden birini kullanabilirsiniz:
+Kullanım tercihinize ve donanımınıza göre projede **2 ayrı bağımsız kurulum paketi** sunulmaktadır:
 
-* 🚀 **[Önerilen] [GW2_Turkce_Yama.exe İndir (GitHub Releases)](../../releases/latest)** *(Tek Tıkla Bağımsız Kurucu & Kontrol Paneli)*
-  * Oyunu (Steam, Epic, Standalone) otomatik bulur.
-  * Tek tıkla kurar, günceller, çeviri motorunu ayarlar veya oyunu orijinal haline döndürür.
-* 📦 **[Local_Translator_0.11.0_TR.zip İndir (GitHub Releases)](../../releases/latest)** *(Ultra-Light Manuel Kurulum - 17.8 MB)*
+| Özellik | 🖥️ Çevrimdışı Sürüm (Offline Local) | ☁️ Çevrimiçi Sürüm (Online Light) |
+| :--- | :--- | :--- |
+| **Kurulum Dosyası** | `GW2_Turkce_Yama_Cevrimdisi.exe` | `GW2_Turkce_Yama_Cevrimici.exe` |
+| **Manuel Zip Paketi** | `Local_Translator_Cevrimdisi_TR.zip` (~112 MB) | `Local_Translator_Cevrimici_TR.zip` (~18 MB) |
+| **Çeviri Motoru** | **CTranslate2 + OPUS-MT** Yerel Makine Modeli | **Google Translate** (Ücretsiz) / **DeepL** / **Gemini** / **GPT** |
+| **İnternet İhtiyacı** | ❌ **Sıfır İnternet** (Tamamen Çevrimdışı) | ✔️ İnternet bağlantısı gerekir |
+| **Gecikme (Latency)** | ⚡ **0 ms** (Doğrudan Yerel CPU) | ~100-300 ms (Web API çağrısı) |
+| **API Anahtarı / Kota** | ❌ **Gerekmez**, sınırsız ve gizli | Google için gerekmez; AI için API Key girilebilir |
+| **Yapay Zeka Modeli** | ✔️ Pakete gömülü (Tak-Çalıştır) | Bulut üzerinde çalışır |
+| **İşlemci Ayarı** | ✔️ Çekirdek sayısı seçilebilir (2, 4, 6, 8) | Minimum CPU tüketimi |
+
+---
+
+## 📥 İndir / Download
+
+En güncel sürümleri indirmek için GitHub Releases sayfasını ziyaret edebilirsiniz:
+
+* 💻 **[GW2_Turkce_Yama_Cevrimdisi.exe İndir (GitHub Releases)](../../releases/latest)** *(Çevrimdışı Tek Tıkla Kurucu)*
+  * Tamamen yerel bilgisayarınızda çalışır; internete, API anahtarına ihtiyaç duymaz.
+  * Pakete gömülü OPUS-MT Türkçe yapay zeka modelini tek tıkla kurar.
+* 📦 **[Local_Translator_Cevrimdisi_TR.zip İndir](../../releases/latest)** *(Çevrimdışı Manuel Kurulum)*
+
+* ☁️ **[GW2_Turkce_Yama_Cevrimici.exe İndir (GitHub Releases)](../../releases/latest)** *(Çevrimiçi Ultra-Hafif Kurucu)*
+  * Ultra-küçük indirme boyutu (~18 MB).
+  * Google Çeviri (varsayılan, ücretsiz, limitsiz), DeepL, Google Gemini 1.5 Flash veya OpenAI GPT kullanır.
+* 📦 **[Local_Translator_Cevrimici_TR.zip İndir](../../releases/latest)** *(Çevrimiçi Manuel Kurulum)*
 
 ---
 
 ## Temel Özellikler
 
-### 1. Bağımsız Tek Tıkla Kurucu & Kontrol Paneli (`GW2_Turkce_Yama.exe`)
-* Oyuncuları zip açma, klasör arama ve addon menüleriyle uğraştırmaz.
+### 1. Bağımsız Tek Tıkla Kurucu & Kontrol Panelleri
+* Oyuncuları zip açma, klasör arama ve karmaşık addon menüleriyle uğraştırmaz.
 * Steam, Epic Games ve Registry üzerindeki Guild Wars 2 kurulumlarını otomatik tespit eder.
-* İstendiğinde tek tıkla Google Çeviri, DeepL, Gemini veya OpenAI GPT arasında geçiş yapmanızı sağlar.
-* Tek tıkla oyunu başlatabilir veya yamayı tamamen kaldırabilirsiniz.
+* Çevrimdışı sürümde CPU çekirdek optimizasyonu, çevrimiçi sürümde ise tek tıkla motor geçişi sağlar.
+* Tek tıkla oyunu başlatabilir veya yamayı tamamen kaldırarak oyunu orijinal haline döndürebilirsiniz.
 
 ### 2. %100 Orijinal Türkçe Font Desteği (`turkish_font.dll` & `version.dll`)
 * Guild Wars 2'nin `Gw2.dat` arşivindeki **156 font boyutunun tamamı** analiz edilmiş ve genişletilmiş Latin glifleri (Range 2: Latin Extended-A) `fontdue` vektörel motoruyla rasterize edilmiştir.
@@ -46,14 +68,7 @@ En güncel sürümü indirmek için aşağıdaki seçeneklerden birini kullanabi
 * Guild Wars 2'nin özellikle **Epic Games Store** (`-eglv2`) ve yeni istemcilerde `d3d11.dll` dosyasını güvenlik sebebiyle atlamasını engelleyen Rust tabanlı, sıfır bağımlılıklı şeffaf bir köprüdür.
 * `Gw2-64.exe`'nin statik import tablosundan faydalanarak oyun başlarken otomatik devreye girer; **Nexus**, **Türkçe Font Enjektörü** ve **Çeviri Motorunu** doğrudan oyuna bağlar.
 
-### 4. Çoklu Çeviri Motoru (Multi-Backend Support)
-İhtiyacınıza ve donanımınıza göre tek tıkla çeviri motorunu değiştirebilirsiniz:
-* **Google Çeviri (Varsayılan):** Tamamen ücretsiz, sınırsız, kurulum gerektirmez ve son derece hızlıdır.
-* **DeepL API:** Yüksek kaliteli, profesyonel oyun çevirisi (Ücretsiz veya Pro API anahtarı gerektirir).
-* **Google Gemini AI:** Google Gemini 1.5 Flash ile son derece doğal ve akıcı yapay zeka çevirisi.
-* **OpenAI GPT:** GPT-4o-mini / GPT-4o yapay zeka motoru.
-
-### 5. Güvenli ve Sıfır Ban Riski
+### 4. Güvenli ve Sıfır Ban Riski
 * `Gw2.dat` oyun veri tabanını fiziksel olarak modifiye etmez.
 * Raidcore Nexus ekosistemi ve güvenli Windows DLL yönlendirmesiyle çalışır; ArenaNet üçüncü parti kullanım politikalarıyla tam uyumludur.
 
@@ -62,18 +77,15 @@ En güncel sürümü indirmek için aşağıdaki seçeneklerden birini kullanabi
 ## Kurulum
 
 ### Yöntem 1: Tek Tıkla Kurulum (Önerilen)
-1. [**Releases**](../../releases/latest) sayfasından `GW2_Turkce_Yama.exe` dosyasını indirin ve çalıştırın.
-2. Program oyun klasörünüzü otomatik olarak bulacaktır. **"Türkçe Yamayı Kur"** butonuna tıklayın.
-3. **"Oyunu Başlat"** butonuna tıklayarak doğrudan Türkçe oynamaya başlayın!
+1. Tercih ettiğiniz sürümün kurucusunu indirin (`GW2_Turkce_Yama_Cevrimdisi.exe` veya `GW2_Turkce_Yama_Cevrimici.exe`).
+2. Programı çalıştırın; oyun klasörünüz otomatik olarak algılanacaktır.
+3. **"Türkçe Yamayı Kur"** butonuna tıklayın.
+4. **"Oyunu Başlat"** butonuna basarak doğrudan Türkçe oynamaya başlayın!
 
 ### Yöntem 2: Manuel Kurulum
-1. [**Releases**](../../releases/latest) sayfasından `Local_Translator_0.11.0_TR.zip` dosyasını indirin.
-2. Zip içerisindeki tüm dosya ve klasörleri (`version.dll`, `d3d11.dll`, `addons/` vb.) doğrudan **Guild Wars 2 oyununuzun kurulu olduğu ana klasöre** (`Gw2-64.exe` dosyasının yanına) çıkartın.
+1. [Releases](../../releases/latest) sayfasından `Local_Translator_Cevrimdisi_TR.zip` veya `Local_Translator_Cevrimici_TR.zip` dosyasını indirin.
+2. Zip içerisindeki tüm dosya ve klasörleri (`version.dll`, `d3d11.dll`, `addons/` vb.) doğrudan **Guild Wars 2 oyununuzun ana klasörüne** (`Gw2-64.exe` dosyasının yanına) çıkartın.
 3. Oyunu her zamanki gibi başlatın.
-4. Oyuna girdikten sonra klavyenizden **`Ctrl + O`** tuşuna basarak (veya sol üstteki Nexus simgesine tıklayarak) Nexus menüsünü açabilir, eklentilerinizi yönetebilirsiniz.
-
-### Çeviri Motorunu Değiştirme
-`addons\text_translator\modules\local_translator_tr\` klasöründeki **`Ceviri_Motoru_Secici.bat`** dosyasını çift tıklayarak Google, DeepL, Gemini, OpenAI veya Yerel Model arasında tek tuşla geçiş yapabilirsiniz.
 
 ### Çeviri Modunu Oyun İçinde Açıp Kapatma (Anlık Toggle Kısayolu)
 İngilizce terimleri, wiki aramalarını veya yetenek isimlerini orijinal dilinde görmek için oyundan çıkmadan tek tuşla Türkçe ve İngilizce arasında geçiş yapabilirsiniz:
@@ -97,14 +109,24 @@ gw2-turkish-localization/
 │   ├── Nexus.h
 │   └── resource.rc
 ├── src/                     # Python çeviri sunucusu ve çoklu motor adaptörleri
-│   ├── lt_server.py         # Google / DeepL / Gemini / OpenAI / Opus-MT çeviri sunucusu
+│   ├── lt_server.py         # CTranslate2 / Google / DeepL / Gemini / OpenAI sunucusu
 │   ├── lt_module.py         # Nexus Text Translator IPC iletişim protokolü
 │   └── patch_db.py          # SQLite önbellek ve sözlük yönetimi
 ├── glossary/                # GW2 oyun terimleri ve Türkçe sözlük
 │   └── glossary_tr.json
-├── TR/                      # Varsayılan yapılandırma şablonları
-│   └── config.json
-├── assemble_release.py      # Otomatik paketleme ve dağıtım betiği
+├── TR/
+│   ├── config.json          # Varsayılan yapılandırma
+│   └── model/               # OPUS-MT Türkçe yerel yapay zeka modeli (Çevrimdışı Sürüm)
+│       ├── model.bin
+│       ├── shared_vocabulary.json
+│       ├── source.spm
+│       ├── target.spm
+│       └── config.json
+├── installer/               # Modern PySide6 tabanlı kontrol panelleri ve kurucular
+│   ├── gw2_control_panel.py
+│   ├── GW2_Turkce_Yama_Cevrimdisi.spec
+│   └── GW2_Turkce_Yama_Cevrimici.spec
+├── assemble_release.py      # Çevrimdışı ve Çevrimiçi paket derleme betiği
 └── create_zip.py            # Release zip sıkıştırıcı
 ```
 
@@ -112,12 +134,13 @@ gw2-turkish-localization/
 
 ## Kaynak Koddan Derleme (Build from Source)
 
-### 1. Çeviri Modülü (Python)
+### 1. Çeviri Modüllerini Derleme (Python / PyInstaller)
 ```bash
-python -m venv .venv
-.\.venv\Scripts\activate
-pip install -r requirements.txt
+# Çevrimdışı sürüm (CTranslate2 dahil):
 pyinstaller Local_Translator_TR.spec
+
+# Çevrimiçi ultra-hafif sürüm:
+pyinstaller Local_Translator_TR_light.spec
 ```
 
 ### 2. Köprü Yükleyici (Rust)
@@ -134,10 +157,17 @@ windres resource.rc -O coff -o resource.res
 g++ -O3 -shared main.cpp resource.res -o turkish_font.dll -lucrt -lkernel32
 ```
 
-Tüm bileşenleri tek pakette toplamak için:
+### 4. Paketleri Toplama ve Zip Oluşturma
 ```bash
-python assemble_release.py
+# Çevrimdışı ve Çevrimiçi paketleri hazırla:
+python assemble_release.py --all
+
+# Dağıtım ziplerini oluştur:
 python create_zip.py
+
+# Kurucu çalıştırılabilir dosyalarını (EXE) derle:
+pyinstaller --distpath dist installer/GW2_Turkce_Yama_Cevrimdisi.spec
+pyinstaller --distpath dist installer/GW2_Turkce_Yama_Cevrimici.spec
 ```
 
 ---

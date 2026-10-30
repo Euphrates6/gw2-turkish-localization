@@ -11,29 +11,51 @@
 [![Release](https://img.shields.io/badge/Release-v0.11.0--TR-brightgreen.svg)](../../releases/latest)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A comprehensive **Turkish localization suite, a 1-click standalone installer and control panel, a 156-font in-memory font injector**, and an **Epic Games Store / Steam / Standalone compatible universal bridge loader** designed for Guild Wars 2.
+A comprehensive **Turkish localization suite, featuring two separate standalone 1-click installers (Offline & Online), a 156-font in-memory font injector**, and an **Epic Games Store / Steam / Standalone compatible universal bridge loader** designed for Guild Wars 2.
 
 It restores and dynamically renders all missing Turkish glyphs (**ç, Ç, ğ, Ğ, ı, İ, ö, Ö, ş, Ş, ü, Ü**) across all 156 font sizes without missing boxes (`[]`) or question marks, while providing real-time in-game translation for dialogues, quests, UI, and story text.
 
 ---
 
-## Download
+## 🚀 Two Separate Editions / İki Ayrı Kurulum Seçeneği
 
-Choose your preferred installation method:
+This project is partitioned into **two distinct standalone packages** to cater to different hardware and internet requirements:
 
-* 🚀 **[Recommended] [Download GW2_Turkce_Yama.exe (GitHub Releases)](../../releases/latest)** *(1-Click Standalone Installer & Control Panel)*
-  * Automatically detects your Guild Wars 2 installation (Steam, Epic Games, Standalone).
-  * 1-click install, update, backend configuration, and clean uninstall.
-* 📦 **[Download Local_Translator_0.11.0_TR.zip (GitHub Releases)](../../releases/latest)** *(Ultra-Light Manual Package - 17.8 MB)*
+| Feature | 🖥️ Offline Edition (Çevrimdışı Sürüm) | ☁️ Online Light Edition (Çevrimiçi Sürüm) |
+| :--- | :--- | :--- |
+| **Standalone Installer** | `GW2_Turkce_Yama_Cevrimdisi.exe` | `GW2_Turkce_Yama_Cevrimici.exe` |
+| **Manual Zip Bundle** | `Local_Translator_Cevrimdisi_TR.zip` (~112 MB) | `Local_Translator_Cevrimici_TR.zip` (~18 MB) |
+| **Engine** | **CTranslate2 + OPUS-MT** Local Neural Model | **Google Translate** (Free) / **DeepL** / **Gemini** / **GPT** |
+| **Internet Required** | ❌ **Zero Internet** (100% Offline) | ✔️ Requires active internet connection |
+| **Translation Latency** | ⚡ **0 ms** (Runs on local CPU) | ~100-300 ms (Web RPC / Cloud API) |
+| **API Key / Quota** | ❌ **None needed**, private & unlimited | None for Google; optional API key for AI |
+| **Model Included** | ✔️ Pre-packaged OPUS-MT model (Plug & Play) | Cloud-based |
+| **Thread Control** | ✔️ Configurable CPU cores (2, 4, 6, 8) | Minimal CPU footprint |
+
+---
+
+## 📥 Download
+
+Download the latest release binaries from GitHub Releases:
+
+* 💻 **[Download GW2_Turkce_Yama_Cevrimdisi.exe (GitHub Releases)](../../releases/latest)** *(Offline 1-Click Installer)*
+  * Completely offline, powered by local CTranslate2 & OPUS-MT neural model.
+  * No internet, no quotas, zero lag.
+* 📦 **[Download Local_Translator_Cevrimdisi_TR.zip](../../releases/latest)** *(Offline Manual Package)*
+
+* ☁️ **[Download GW2_Turkce_Yama_Cevrimici.exe (GitHub Releases)](../../releases/latest)** *(Online Ultra-Light Installer)*
+  * Tiny package size (~18 MB).
+  * Powered by Google Translate (default, free, unlimited), DeepL, Google Gemini 1.5 Flash, or OpenAI GPT.
+* 📦 **[Download Local_Translator_Cevrimici_TR.zip](../../releases/latest)** *(Online Manual Package)*
 
 ---
 
 ## Key Features
 
-### 1. Standalone 1-Click Installer & Control Panel (`GW2_Turkce_Yama.exe`)
+### 1. Standalone 1-Click Installers & Control Panels
 * Zero addon management or zip extraction needed by players.
 * Automatically detects Steam, Epic Games Store, and ArenaNet Standalone game paths.
-* 1-click switching between Google Translate, DeepL, Gemini AI, and OpenAI GPT.
+* Dedicated configuration: CPU thread selection for Offline edition, multi-backend selector for Online edition.
 * 1-click launch game or clean uninstall to restore vanilla game.
 
 ### 2. 100% Native Turkish Font Engine (`turkish_font.dll` & `version.dll`)
@@ -45,14 +67,7 @@ Choose your preferred installation method:
 * A lightweight, zero-dependency Rust DLL proxy that bypasses client restrictions where `d3d11.dll` is skipped (notably in **Epic Games Store** `-eglv2` and modern launchers).
 * Automatically invoked via `Gw2-64.exe` static import tables during startup; transparently chainloads **Raidcore Nexus**, the **Turkish Font Injector**, and the **Translation Server**.
 
-### 4. Multi-Backend Translation Engines
-Switch translation backends with a single click depending on your preference and hardware:
-* **Google Translate (Default):** 100% free, unlimited, fast, and requires zero API setup.
-* **DeepL API:** High-precision, context-aware game translation (requires Free or Pro API key).
-* **Google Gemini AI:** Fluid, natural translations powered by Google Gemini 1.5 Flash.
-* **OpenAI GPT:** Supports GPT-4o-mini and GPT-4o.
-
-### 5. Safe & Zero Ban Risk
+### 4. Safe & Zero Ban Risk
 * Zero physical modifications to `Gw2.dat` or game binaries.
 * Adheres strictly to ArenaNet third-party program policies via standard Windows DLL forwarding and the Raidcore Nexus ecosystem.
 
@@ -61,18 +76,14 @@ Switch translation backends with a single click depending on your preference and
 ## Quick Installation
 
 ### Method 1: 1-Click Installer (Recommended)
-1. Download `GW2_Turkce_Yama.exe` from the [**Releases**](../../releases/latest) page.
+1. Download your preferred edition installer (`GW2_Turkce_Yama_Cevrimdisi.exe` or `GW2_Turkce_Yama_Cevrimici.exe`).
 2. Run the executable. It will automatically detect your game directory. Click **"Türkçe Yamayı Kur"** (Install).
 3. Click **"Oyunu Başlat"** (Launch Game) and enjoy Guild Wars 2 in Turkish!
 
 ### Method 2: Manual Installation
-1. Download `Local_Translator_0.11.0_TR.zip` from the [**Releases**](../../releases/latest) page.
+1. Download `Local_Translator_Cevrimdisi_TR.zip` or `Local_Translator_Cevrimici_TR.zip` from [**Releases**](../../releases/latest).
 2. Extract all contents (`version.dll`, `d3d11.dll`, `addons/`, etc.) directly into your **Guild Wars 2 root directory** (where `Gw2-64.exe` is located).
 3. Launch the game normally via Epic Games Launcher, Steam, or the Standalone client.
-4. In-game, press **`Ctrl + O`** (or click the Nexus icon in the top-left corner) to open the Nexus overlay and manage addons.
-
-### Switching Translation Engines
-Open `addons\text_translator\modules\local_translator_tr\` and run **`Ceviri_Motoru_Secici.bat`** to switch between Google, DeepL, Gemini, OpenAI, or the Offline model with a single keystroke.
 
 ### Toggling Translation On/Off In-Game (Instant Toggle Keybind)
 To view original English item names, skill tooltips, or wiki terms without restarting the game, you can switch between Turkish and English with a single keypress:
@@ -96,27 +107,38 @@ gw2-turkish-localization/
 │   ├── Nexus.h
 │   └── resource.rc
 ├── src/                     # Python translation server & multi-engine adapters
-│   ├── lt_server.py         # Google / DeepL / Gemini / OpenAI / Opus-MT server
+│   ├── lt_server.py         # CTranslate2 / Google / DeepL / Gemini / OpenAI server
 │   ├── lt_module.py         # Nexus Text Translator IPC protocol handler
 │   └── patch_db.py          # SQLite cache & glossary manager
 ├── glossary/                # GW2 game terminology & Turkish glossary
 │   └── glossary_tr.json
-├── TR/                      # Default configuration templates
-│   └── config.json
-├── assemble_release.py      # Automated packaging and staging pipeline
-└── create_zip.py            # Release zip builder
+├── TR/
+│   ├── config.json          # Default configuration template
+│   └── model/               # OPUS-MT Turkish neural model (Offline Edition)
+│       ├── model.bin
+│       ├── shared_vocabulary.json
+│       ├── source.spm
+│       ├── target.spm
+│       └── config.json
+├── installer/               # Modern PySide6 standalone installers & control panels
+│   ├── gw2_control_panel.py
+│   ├── GW2_Turkce_Yama_Cevrimdisi.spec
+│   └── GW2_Turkce_Yama_Cevrimici.spec
+├── assemble_release.py      # Dual-target staging script (offline & online)
+└── create_zip.py            # Dual-target zip packaging script
 ```
 
 ---
 
 ## Building from Source
 
-### 1. Translation Module (Python)
+### 1. Translation Modules (Python / PyInstaller)
 ```bash
-python -m venv .venv
-.\.venv\Scripts\activate
-pip install -r requirements.txt
+# Offline local edition (bundles CTranslate2):
 pyinstaller Local_Translator_TR.spec
+
+# Online ultra-light edition:
+pyinstaller Local_Translator_TR_light.spec
 ```
 
 ### 2. Bridge Loader (Rust)
@@ -133,10 +155,17 @@ windres resource.rc -O coff -o resource.res
 g++ -O3 -shared main.cpp resource.res -o turkish_font.dll -lucrt -lkernel32
 ```
 
-To package everything into a release bundle:
+### 4. Assembling Packages & Building Installers
 ```bash
-python assemble_release.py
+# Stage both offline and online packages:
+python assemble_release.py --all
+
+# Create distributable zip archives:
 python create_zip.py
+
+# Build the standalone installer executables:
+pyinstaller --distpath dist installer/GW2_Turkce_Yama_Cevrimdisi.spec
+pyinstaller --distpath dist installer/GW2_Turkce_Yama_Cevrimici.spec
 ```
 
 ---

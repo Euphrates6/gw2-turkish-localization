@@ -3,6 +3,7 @@
 
 Bu uygulama, Guild Wars 2 için geliştirilmiş Türkçe font motorunu ve çeviri sistemini
 otomatik olarak tespit edip tek tıkla kurar, yönetir ve kaldırır.
+Hem Çevrimdışı (Offline CTranslate2) hem de Çevrimiçi (Google / AI) sürümlerini destekler.
 """
 from __future__ import annotations
 
@@ -23,17 +24,49 @@ from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QLineEdit, QRadioButton, QButtonGroup,
     QFileDialog, QMessageBox, QProgressBar, QFrame, QScrollArea,
-    QGraphicsDropShadowEffect, QSizePolicy
+    QGraphicsDropShadowEffect, QSizePolicy, QComboBox
 )
 
-APP_VERSION = "v0.10.0 (Ultra-Light)"
-APP_TITLE = f"Guild Wars 2 Türkçe Yerelleştirme {APP_VERSION}"
+APP_VERSION = "v0.11.0"
+
 
 def get_bundle_dir() -> Path:
     """PyInstaller bundle directory or current script directory."""
     if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
         return Path(sys._MEIPASS)
     return Path(__file__).resolve().parent.parent
+
+
+def get_edition() -> str:
+    """Detects whether this installer runs in 'offline' (Çevrimdışı) or 'online' (Çevrimiçi) mode."""
+    # 1. Command-line flag
+    for arg in sys.argv[1:]:
+        a = arg.lower().strip("-")
+        if a in ("offline", "cevrimdisi", "yerel", "local"):
+            return "offline"
+        if a in ("online", "cevrimici", "bulut", "light"):
+            return "online"
+
+    # 2. Executable name
+    exe_stem = Path(sys.executable).stem.lower()
+    if "cevrimdisi" in exe_stem or "offline" in exe_stem:
+        return "offline"
+    if "cevrimici" in exe_stem or "online" in exe_stem:
+        return "online"
+
+    # 3. Bundled zip payload presence
+    bundle = get_bundle_dir()
+    has_offline_zip = (bundle / "Local_Translator_Cevrimdisi_TR.zip").exists()
+    has_online_zip = (bundle / "Local_Translator_Cevrimici_TR.zip").exists()
+
+    if has_offline_zip and not has_online_zip:
+        return "offline"
+    if has_online_zip and not has_offline_zip:
+        return "online"
+
+    # Default to offline if both or neither exist
+    return "offline"
+
 
 def find_gw2_installations() -> list[Path]:
     """Find all potential Gw2-64.exe locations across Steam, Epic, Registry and common drives."""
@@ -114,6 +147,7 @@ def find_gw2_installations() -> list[Path]:
 
     return found
 
+
 def is_gw2_running() -> bool:
     """Check if Gw2-64.exe is running."""
     try:
@@ -130,25 +164,46 @@ class InstallWorker(QThread):
     progress = Signal(int, str)
     finished_signal = Signal(bool, str)
 
-    def __init__(self, target_dir: Path, config_data: dict):
+    def __init__(self, target_dir: Path, config_data: dict, edition: str):
         super().__init__()
         self.target_dir = target_dir
         self.config_data = config_data
+        self.edition = edition
 
     def run(self):
         try:
             self.progress.emit(10, "Kurulum dosyaları taranıyor...")
             bundle_dir = get_bundle_dir()
 
-            # Locate payload zip or release_package
-            candidates = list(bundle_dir.glob("Local_Translator_*_TR.zip")) + list(Path(".").glob("Local_Translator_*_TR.zip"))
-            zip_payload = candidates[0] if candidates else (bundle_dir / "Local_Translator_0.11.0_TR.zip")
+            # Locate payload zip or release directory
+            if self.edition == "offline":
+                zip_candidates = [
+                    bundle_dir / "Local_Translator_Cevrimdisi_TR.zip",
+                    Path("Local_Translator_Cevrimdisi_TR.zip"),
+                    bundle_dir / "Local_Translator_0.10.0_TR.zip",
+                    Path("Local_Translator_0.10.0_TR.zip"),
+                ]
+                release_dir = bundle_dir / "release_package_offline"
+                if not release_dir.exists():
+                    release_dir = Path("release_package_offline")
+            else:
+                zip_candidates = [
+                    bundle_dir / "Local_Translator_Cevrimici_TR.zip",
+                    Path("Local_Translator_Cevrimici_TR.zip"),
+                    bundle_dir / "Local_Translator_0.11.0_TR.zip",
+                    Path("Local_Translator_0.11.0_TR.zip"),
+                ]
+                release_dir = bundle_dir / "release_package_online"
+                if not release_dir.exists():
+                    release_dir = Path("release_package_online")
 
-            release_dir = bundle_dir / "release_package"
-            if not release_dir.exists():
-                release_dir = Path("release_package")
+            zip_payload = None
+            for cand in zip_candidates:
+                if cand.exists():
+                    zip_payload = cand
+                    break
 
-            if zip_payload.exists():
+            if zip_payload and zip_payload.exists():
                 self.progress.emit(25, f"Arşiv açılıyor ({zip_payload.name})...")
                 with zipfile.ZipFile(zip_payload, "r") as z:
                     total_files = len(z.infolist())
@@ -161,7 +216,7 @@ class InstallWorker(QThread):
                 self.progress.emit(25, "Paket dosyaları kopyalanıyor...")
                 shutil.copytree(release_dir, self.target_dir, dirs_exist_ok=True)
             else:
-                self.finished_signal.emit(False, "Kurulum paketi (Local_Translator_0.10.0_TR.zip veya release_package) bulunamadı!")
+                self.finished_signal.emit(False, f"Kurulum paketi bulunamadı! Lütfen zip dosyasının programla aynı klasörde olduğundan emin olun.")
                 return
 
             self.progress.emit(85, "Çeviri motoru yapılandırılıyor...")
@@ -171,7 +226,8 @@ class InstallWorker(QThread):
             config_path.write_text(json.dumps(self.config_data, indent=2, ensure_ascii=False), encoding="utf-8")
 
             self.progress.emit(100, "Kurulum başarıyla tamamlandı!")
-            self.finished_signal.emit(True, "Guild Wars 2 Türkçe Yerelleştirme başarıyla kuruldu!")
+            ed_label = "Çevrimdışı (Local PC)" if self.edition == "offline" else "Çevrimiçi (Google / AI)"
+            self.finished_signal.emit(True, f"Guild Wars 2 Türkçe Yerelleştirme ({ed_label}) başarıyla kuruldu!")
         except Exception as e:
             self.finished_signal.emit(False, f"Kurulum sırasında hata oluştu: {e}")
 
@@ -217,14 +273,24 @@ class UninstallWorker(QThread):
 
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, edition: str):
         super().__init__()
+        self.edition = edition
         self.gw2_path: Path | None = None
         self.worker: QThread | None = None
 
-        self.setWindowTitle(APP_TITLE)
-        self.setMinimumSize(780, 720)
-        self.resize(820, 760)
+        if self.edition == "offline":
+            self.title_text = "Guild Wars 2 Türkçe Yerelleştirme"
+            self.subtitle_text = f"Çevrimdışı Sürüm • %100 Yerel PC Makine Çevirisi • {APP_VERSION}"
+            self.window_title = f"Guild Wars 2 Türkçe Yerelleştirme (Çevrimdışı) {APP_VERSION}"
+        else:
+            self.title_text = "Guild Wars 2 Türkçe Yerelleştirme"
+            self.subtitle_text = f"Çevrimiçi Sürüm • Ultra-Hafif Paket (~18 MB) • {APP_VERSION}"
+            self.window_title = f"Guild Wars 2 Türkçe Yerelleştirme (Çevrimiçi) {APP_VERSION}"
+
+        self.setWindowTitle(self.window_title)
+        self.setMinimumSize(800, 720)
+        self.resize(840, 760)
 
         self.apply_dark_theme()
         self.init_ui()
@@ -320,7 +386,7 @@ class MainWindow(QMainWindow):
                 border-radius: 8px;
                 padding: 8px 16px;
             }
-            QLineEdit {
+            QLineEdit, QComboBox {
                 background-color: #121316;
                 border: 1px solid #3f3f46;
                 border-radius: 6px;
@@ -328,8 +394,12 @@ class MainWindow(QMainWindow):
                 color: #ffffff;
                 font-size: 13px;
             }
-            QLineEdit:focus {
+            QLineEdit:focus, QComboBox:focus {
                 border: 1px solid #f59e0b;
+            }
+            QComboBox::drop-down {
+                border: none;
+                padding-right: 8px;
             }
             QRadioButton {
                 font-size: 13px;
@@ -368,9 +438,9 @@ class MainWindow(QMainWindow):
         header_text_layout = QVBoxLayout()
         header_text_layout.setSpacing(4)
 
-        title_lbl = QLabel("Guild Wars 2 Türkçe Yerelleştirme")
+        title_lbl = QLabel(self.title_text)
         title_lbl.setProperty("class", "title")
-        subtitle_lbl = QLabel(f"Ultra-Hafif Sürüm • %100 Orijinal Font Enjeksiyonu • {APP_VERSION}")
+        subtitle_lbl = QLabel(self.subtitle_text)
         subtitle_lbl.setProperty("class", "subtitle")
 
         header_text_layout.addWidget(title_lbl)
@@ -411,80 +481,121 @@ class MainWindow(QMainWindow):
         path_layout.addWidget(self.path_info_lbl)
         main_layout.addWidget(path_card)
 
-        # 3. Çeviri Motoru & Ayarlar Kartı (Settings Card)
+        # 3. Çeviri Motoru & Ayarlar Kartı
         settings_card = QFrame()
         settings_card.setProperty("class", "card")
         settings_layout = QVBoxLayout(settings_card)
         settings_layout.setContentsMargins(18, 14, 18, 14)
         settings_layout.setSpacing(10)
 
-        engine_header = QLabel("ÇEVİRİ MOTORU SEÇİMİ")
-        engine_header.setProperty("class", "section")
-        settings_layout.addWidget(engine_header)
+        if self.edition == "offline":
+            # OFFLINE EDITION UI
+            engine_header = QLabel("ÇEVRİMDIŞI ÇEVİRİ MOTORU (YEREL PC)")
+            engine_header.setProperty("class", "section")
+            settings_layout.addWidget(engine_header)
 
-        self.engine_group = QButtonGroup(self)
-        engines_layout = QVBoxLayout()
-        engines_layout.setSpacing(8)
+            desc_box = QFrame()
+            desc_box.setStyleSheet("background-color: #121316; border: 1px solid #27272a; border-radius: 8px; padding: 12px;")
+            desc_layout = QVBoxLayout(desc_box)
+            desc_layout.setSpacing(6)
 
-        # Engine 1: Google Translate (Default)
-        self.rb_google = QRadioButton("Google Çeviri (Varsayılan - Ücretsiz, Hızlı, Sınırsız, Kurulumsuz)")
-        self.rb_google.setMinimumHeight(24)
-        self.engine_group.addButton(self.rb_google, 1)
-        engines_layout.addWidget(self.rb_google)
+            info_title = QLabel("💻 Yerel OPUS-MT & CTranslate2 Motoru (Sıfır İnternet, Sıfır Lag)")
+            info_title.setStyleSheet("color: #34d399; font-weight: bold; font-size: 14px;")
+            desc_layout.addWidget(info_title)
 
-        # Engine 2: Gemini AI
-        self.rb_gemini = QRadioButton("Google Gemini 1.5 Flash (Yapay Zeka - Akıcı Oyun Çevirisi, API Key Gerekir)")
-        self.rb_gemini.setMinimumHeight(24)
-        self.engine_group.addButton(self.rb_gemini, 2)
-        engines_layout.addWidget(self.rb_gemini)
+            info_p1 = QLabel("• <b>İnternet bağlantısı gerektirmez:</b> Tüm oyun metinleri doğrudan bilgisayarınızın işlemcisi (CPU) üzerinde anında çevrilir.")
+            info_p1.setStyleSheet("color: #d4d4d8; font-size: 12px;")
+            info_p1.setWordWrap(True)
+            desc_layout.addWidget(info_p1)
 
-        # Engine 3: DeepL API
-        self.rb_deepl = QRadioButton("DeepL API (Yüksek Kaliteli Çeviri - API Key Gerekir)")
-        self.rb_deepl.setMinimumHeight(24)
-        self.engine_group.addButton(self.rb_deepl, 3)
-        engines_layout.addWidget(self.rb_deepl)
+            info_p2 = QLabel("• <b>Kota ve API anahtarı yok:</b> Ücretsiz, sınırsız ve tamamen gizli. Paket içerisindeki yapay zeka modeli hazır olarak gelir.")
+            info_p2.setStyleSheet("color: #d4d4d8; font-size: 12px;")
+            info_p2.setWordWrap(True)
+            desc_layout.addWidget(info_p2)
+            settings_layout.addWidget(desc_box)
 
-        # Engine 4: OpenAI GPT
-        self.rb_openai = QRadioButton("OpenAI GPT (GPT-4o-mini / GPT-4o - API Key Gerekir)")
-        self.rb_openai.setMinimumHeight(24)
-        self.engine_group.addButton(self.rb_openai, 4)
-        engines_layout.addWidget(self.rb_openai)
+            # CPU Threads Selector
+            thread_layout = QHBoxLayout()
+            thread_lbl = QLabel("İşlemci Çekirdek Kullanımı (CPU Threads):")
+            thread_lbl.setStyleSheet("color: #e4e4e7; font-weight: bold;")
+            thread_layout.addWidget(thread_lbl)
 
-        settings_layout.addLayout(engines_layout)
+            self.thread_combo = QComboBox()
+            self.thread_combo.addItem("4 Çekirdek (Önerilen - Hızlı & Dengeli)", 4)
+            self.thread_combo.addItem("2 Çekirdek (Düşük Donanımlı İşlemciler)", 2)
+            self.thread_combo.addItem("6 Çekirdek (Yüksek Performans)", 6)
+            self.thread_combo.addItem("8 Çekirdek (Maksimum Çeviri Hızı)", 8)
+            self.thread_combo.addItem("Otomatik (İşlemcinin %25'i)", 0)
+            self.thread_combo.setFixedWidth(280)
+            thread_layout.addWidget(self.thread_combo)
+            thread_layout.addStretch()
+            settings_layout.addLayout(thread_layout)
 
-        # API Key container
-        self.api_key_frame = QWidget()
-        api_layout = QVBoxLayout(self.api_key_frame)
-        api_layout.setContentsMargins(0, 4, 0, 0)
-        api_layout.setSpacing(4)
+        else:
+            # ONLINE EDITION UI
+            engine_header = QLabel("ÇEVİRİ MOTORU SEÇİMİ (BULUT & YAPAY ZEKA)")
+            engine_header.setProperty("class", "section")
+            settings_layout.addWidget(engine_header)
 
-        self.api_lbl = QLabel("API Anahtarı:")
-        self.api_lbl.setStyleSheet("color: #d4d4d8; font-weight: bold;")
+            self.engine_group = QButtonGroup(self)
+            engines_layout = QVBoxLayout()
+            engines_layout.setSpacing(8)
 
-        api_input_row = QHBoxLayout()
-        self.api_edit = QLineEdit()
-        self.api_edit.setPlaceholderText("API anahtarınızı buraya yapıştırın...")
-        self.api_edit.setEchoMode(QLineEdit.Password)
-        api_input_row.addWidget(self.api_edit)
+            self.rb_google = QRadioButton("Google Çeviri (Varsayılan - Ücretsiz, Hızlı, Sınırsız, Kurulumsuz)")
+            self.rb_google.setMinimumHeight(24)
+            self.engine_group.addButton(self.rb_google, 1)
+            engines_layout.addWidget(self.rb_google)
 
-        self.toggle_key_btn = QPushButton("👁 Göster")
-        self.toggle_key_btn.setCursor(Qt.PointingHandCursor)
-        self.toggle_key_btn.setFixedWidth(100)
-        self.toggle_key_btn.clicked.connect(self.toggle_api_key_visibility)
-        api_input_row.addWidget(self.toggle_key_btn)
+            self.rb_gemini = QRadioButton("Google Gemini 1.5 Flash (Yapay Zeka - Akıcı Oyun Çevirisi, API Key Gerekir)")
+            self.rb_gemini.setMinimumHeight(24)
+            self.engine_group.addButton(self.rb_gemini, 2)
+            engines_layout.addWidget(self.rb_gemini)
 
-        api_layout.addWidget(self.api_lbl)
-        api_layout.addLayout(api_input_row)
-        settings_layout.addWidget(self.api_key_frame)
+            self.rb_deepl = QRadioButton("DeepL API (Yüksek Kaliteli Çeviri - API Key Gerekir)")
+            self.rb_deepl.setMinimumHeight(24)
+            self.engine_group.addButton(self.rb_deepl, 3)
+            engines_layout.addWidget(self.rb_deepl)
 
-        self.rb_google.setChecked(True)
-        self.api_key_frame.setVisible(False)
-        self.engine_group.idToggled.connect(self.on_engine_toggled)
+            self.rb_openai = QRadioButton("OpenAI GPT (GPT-4o-mini / GPT-4o - API Key Gerekir)")
+            self.rb_openai.setMinimumHeight(24)
+            self.engine_group.addButton(self.rb_openai, 4)
+            engines_layout.addWidget(self.rb_openai)
+
+            settings_layout.addLayout(engines_layout)
+
+            # API Key container
+            self.api_key_frame = QWidget()
+            api_layout = QVBoxLayout(self.api_key_frame)
+            api_layout.setContentsMargins(0, 4, 0, 0)
+            api_layout.setSpacing(4)
+
+            self.api_lbl = QLabel("API Anahtarı:")
+            self.api_lbl.setStyleSheet("color: #d4d4d8; font-weight: bold;")
+
+            api_input_row = QHBoxLayout()
+            self.api_edit = QLineEdit()
+            self.api_edit.setPlaceholderText("API anahtarınızı buraya yapıştırın...")
+            self.api_edit.setEchoMode(QLineEdit.Password)
+            api_input_row.addWidget(self.api_edit)
+
+            self.toggle_key_btn = QPushButton("👁 Göster")
+            self.toggle_key_btn.setCursor(Qt.PointingHandCursor)
+            self.toggle_key_btn.setFixedWidth(100)
+            self.toggle_key_btn.clicked.connect(self.toggle_api_key_visibility)
+            api_input_row.addWidget(self.toggle_key_btn)
+
+            api_layout.addWidget(self.api_lbl)
+            api_layout.addLayout(api_input_row)
+            settings_layout.addWidget(self.api_key_frame)
+
+            self.rb_google.setChecked(True)
+            self.api_key_frame.setVisible(False)
+            self.engine_group.idToggled.connect(self.on_engine_toggled)
 
         # Save settings button
         save_layout = QHBoxLayout()
         save_layout.addStretch()
-        self.save_btn = QPushButton("Motor Ayarını Kaydet")
+        self.save_btn = QPushButton("Ayarları Kaydet")
         self.save_btn.setCursor(Qt.PointingHandCursor)
         self.save_btn.clicked.connect(self.save_settings)
         save_layout.addWidget(self.save_btn)
@@ -545,15 +656,16 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(info_card)
 
     def toggle_api_key_visibility(self):
-        if self.api_edit.echoMode() == QLineEdit.Password:
-            self.api_edit.setEchoMode(QLineEdit.Normal)
-            self.toggle_key_btn.setText("🔒 Gizle")
-        else:
-            self.api_edit.setEchoMode(QLineEdit.Password)
-            self.toggle_key_btn.setText("👁 Göster")
+        if hasattr(self, "api_edit"):
+            if self.api_edit.echoMode() == QLineEdit.Password:
+                self.api_edit.setEchoMode(QLineEdit.Normal)
+                self.toggle_key_btn.setText("🔒 Gizle")
+            else:
+                self.api_edit.setEchoMode(QLineEdit.Password)
+                self.toggle_key_btn.setText("👁 Göster")
 
     def on_engine_toggled(self, btn_id: int, checked: bool):
-        if not checked:
+        if not checked or not hasattr(self, "api_key_frame"):
             return
         if btn_id == 1:  # Google
             self.api_key_frame.setVisible(False)
@@ -647,40 +759,56 @@ class MainWindow(QMainWindow):
         if cfg_file.exists():
             try:
                 data = json.loads(cfg_file.read_text(encoding="utf-8"))
-                backend = data.get("backend", "google")
-                if backend == "google":
-                    self.rb_google.setChecked(True)
-                elif backend == "gemini":
-                    self.rb_gemini.setChecked(True)
-                    self.api_edit.setText(data.get("gemini_api_key", ""))
-                elif backend == "deepl":
-                    self.rb_deepl.setChecked(True)
-                    self.api_edit.setText(data.get("deepl_api_key", ""))
-                elif backend == "openai":
-                    self.rb_openai.setChecked(True)
-                    self.api_edit.setText(data.get("openai_api_key", ""))
+                if self.edition == "offline":
+                    th = data.get("threads", 4)
+                    for i in range(self.thread_combo.count()):
+                        if self.thread_combo.itemData(i) == th:
+                            self.thread_combo.setCurrentIndex(i)
+                            break
+                else:
+                    backend = data.get("backend", "google")
+                    if backend == "google":
+                        self.rb_google.setChecked(True)
+                    elif backend == "gemini":
+                        self.rb_gemini.setChecked(True)
+                        self.api_edit.setText(data.get("gemini_api_key", ""))
+                    elif backend == "deepl":
+                        self.rb_deepl.setChecked(True)
+                        self.api_edit.setText(data.get("deepl_api_key", ""))
+                    elif backend == "openai":
+                        self.rb_openai.setChecked(True)
+                        self.api_edit.setText(data.get("openai_api_key", ""))
             except Exception:
                 pass
 
     def get_current_config(self) -> dict:
-        backend = "google"
-        if self.rb_gemini.isChecked():
-            backend = "gemini"
-        elif self.rb_deepl.isChecked():
-            backend = "deepl"
-        elif self.rb_openai.isChecked():
-            backend = "openai"
+        if self.edition == "offline":
+            threads_val = self.thread_combo.currentData()
+            return {
+                "backend": "local",
+                "threads": threads_val if threads_val else 4,
+                "char_mode": "smart",
+                "translate_chat": False
+            }
+        else:
+            backend = "google"
+            if self.rb_gemini.isChecked():
+                backend = "gemini"
+            elif self.rb_deepl.isChecked():
+                backend = "deepl"
+            elif self.rb_openai.isChecked():
+                backend = "openai"
 
-        key = self.api_edit.text().strip()
-        return {
-            "backend": backend,
-            "deepl_api_key": key if backend == "deepl" else "",
-            "gemini_api_key": key if backend == "gemini" else "",
-            "openai_api_key": key if backend == "openai" else "",
-            "openai_model": "gpt-4o-mini",
-            "char_mode": "smart",
-            "translate_chat": False
-        }
+            key = self.api_edit.text().strip()
+            return {
+                "backend": backend,
+                "deepl_api_key": key if backend == "deepl" else "",
+                "gemini_api_key": key if backend == "gemini" else "",
+                "openai_api_key": key if backend == "openai" else "",
+                "openai_model": "gpt-4o-mini",
+                "char_mode": "smart",
+                "translate_chat": False
+            }
 
     def save_settings(self):
         if not self.gw2_path:
@@ -695,7 +823,10 @@ class MainWindow(QMainWindow):
         try:
             cfg = self.get_current_config()
             cfg_path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False), encoding="utf-8")
-            QMessageBox.information(self, "Başarılı", f"Çeviri motoru '{cfg['backend'].upper()}' olarak kaydedildi!")
+            if self.edition == "offline":
+                QMessageBox.information(self, "Başarılı", f"Çevrimdışı motor ayarları kaydedildi (Threads: {cfg.get('threads')})!")
+            else:
+                QMessageBox.information(self, "Başarılı", f"Çeviri motoru '{cfg['backend'].upper()}' olarak kaydedildi!")
         except Exception as e:
             QMessageBox.critical(self, "Hata", f"Ayar dosyası kaydedilemedi: {e}")
 
@@ -721,7 +852,7 @@ class MainWindow(QMainWindow):
         self.progress_lbl.setVisible(True)
 
         cfg = self.get_current_config()
-        self.worker = InstallWorker(self.gw2_path, cfg)
+        self.worker = InstallWorker(self.gw2_path, cfg, self.edition)
         self.worker.progress.connect(self.on_worker_progress)
         self.worker.finished_signal.connect(self.on_install_finished)
         self.worker.start()
@@ -801,10 +932,12 @@ class MainWindow(QMainWindow):
 
 
 def main():
+    edition = get_edition()
     app = QApplication(sys.argv)
-    window = MainWindow()
+    window = MainWindow(edition=edition)
     window.show()
     sys.exit(app.exec())
+
 
 if __name__ == "__main__":
     main()

@@ -864,7 +864,8 @@ def main() -> int:
                 model = args.lang_dir / "model"
                 try:
                     lt.ensure_model(model, args.lang_dir, lt.MODEL_URL)
-                    threads = model_threads(args.threads)
+                    req_threads = args.threads if args.threads is not None else cfg.get("threads")
+                    threads = model_threads(req_threads)
                     translator = lt.CT2Translator(model, threads=threads)
                     log.info("local model loaded (%d threads)", threads)
                 except Exception:

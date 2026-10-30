@@ -30,7 +30,9 @@ MANIFEST
 #   Usually these files are written by a python script from a template
 #   before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
-*.spec
+# *.spec files in this repo are maintained for builds
+!*.spec
+!installer/*.spec
 
 # Installer logs
 pip-log.txt
@@ -233,6 +235,8 @@ patch/patch_*.json
 
 # Release artifacts and caches
 release_package/
+release_package_offline/
+release_package_online/
 TR/model/
 TR/*.db
 TR/*.db-*
@@ -242,4 +246,5 @@ target/
 test_sub_*/
 *.res
 
+decomp_gw2_body.bin
 steam_guide_icon.jpg
