@@ -281,7 +281,7 @@ class MainWindow(QMainWindow):
 
         if self.edition == "offline":
             self.title_text = "Guild Wars 2 Türkçe Yerelleştirme"
-            self.subtitle_text = f"Çevrimdışı Sürüm • %100 Yerel PC Makine Çevirisi • {APP_VERSION}"
+            self.subtitle_text = f"Çevrimdışı Sürüm • Yerel PC Makine Çevirisi • {APP_VERSION}"
             self.window_title = f"Guild Wars 2 Türkçe Yerelleştirme (Çevrimdışı) {APP_VERSION}"
         else:
             self.title_text = "Guild Wars 2 Türkçe Yerelleştirme"

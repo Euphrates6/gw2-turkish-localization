@@ -11,9 +11,9 @@
 [![Release](https://img.shields.io/badge/Release-v0.11.0--TR-brightgreen.svg)](../../releases/latest)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A comprehensive **Turkish localization suite, featuring two separate standalone 1-click installers (Offline & Online), a 156-font in-memory font injector**, and an **Epic Games Store / Steam / Standalone compatible universal bridge loader** designed for Guild Wars 2.
+A comprehensive **Turkish localization suite, featuring two separate standalone 1-click installers (Offline & Online), an in-memory font injector**, and an **Epic Games Store / Steam / Standalone compatible universal bridge loader** designed for Guild Wars 2.
 
-It restores and dynamically renders all missing Turkish glyphs (**ç, Ç, ğ, Ğ, ı, İ, ö, Ö, ş, Ş, ü, Ü**) across all 156 font sizes without missing boxes (`[]`) or question marks, while providing real-time in-game translation for dialogues, quests, UI, and story text.
+It injects Turkish character glyph support into the game's native fonts with smart glyph handling, preventing missing character bugs while providing real-time in-game translation for dialogues, quests, UI, and story text.
 
 ---
 
@@ -58,10 +58,10 @@ Download the latest release binaries from GitHub Releases:
 * Dedicated configuration: CPU thread selection for Offline edition, multi-backend selector for Online edition.
 * 1-click launch game or clean uninstall to restore vanilla game.
 
-### 2. 100% Native Turkish Font Engine (`turkish_font.dll` & `version.dll`)
-* Analyzed all **156 font sizes** stored in `Gw2.dat` and dynamically rasterized extended Latin glyphs (Range 2: Latin Extended-A) using vector font rendering (`fontdue`).
-* Hooks into the in-memory `FileArchive::ReadFile` routine to inject Turkish character atlases at runtime without modifying game files on disk.
-* No need to downgrade or transliterate letters (`s, i, g`); characters render cleanly in the game's authentic visual style.
+### 2. Custom Turkish Font & Smart Glyph Engine (`turkish_font.dll` & `version.dll`)
+* Analyzed `Gw2.dat` font atlases and rasterized extended Latin glyphs (Range 2: Latin Extended-A) using vector font rendering.
+* Hooks into the in-memory `FileArchive::ReadFile` routine to inject Turkish character glyphs at runtime without modifying game files on disk.
+* Due to limitations in certain in-game UI font tables, the translator employs an intelligent character fallback mode (`char_mode: smart`) to ensure clean text display and prevent character drop issues.
 
 ### 3. Universal Bridge Loader (`version.dll`)
 * A lightweight, zero-dependency Rust DLL proxy that bypasses client restrictions where `d3d11.dll` is skipped (notably in **Epic Games Store** `-eglv2` and modern launchers).
@@ -180,7 +180,7 @@ This project is built upon the invaluable contributions of the open-source and G
 * **[morluto](https://github.com/morluto)**: Reverse engineering tooling and research via [REA](https://github.com/morluto/rea).
 * **[Raidcore Team](https://raidcore.gg/Nexus)**: The incredible Nexus D3D11 Addon Engine for Guild Wars 2.
 * **[Helsinki-NLP](https://github.com/Helsinki-NLP)** & **[OpenNMT CTranslate2](https://github.com/OpenNMT/CTranslate2)**: Offline neural machine translation models.
-* **Developer & Turkish Localization:** **[Euphrates6](https://github.com/Euphrates6)** & **Antigravity (Google DeepMind)** — 156-font vector rasterization, Epic Games compatible Rust bridge architecture, AI integration, and full Turkish localization.
+* **Developer & Turkish Localization:** **[Euphrates6](https://github.com/Euphrates6)** & **Antigravity (Google DeepMind)** — Custom font injection, smart glyph optimization, Epic Games compatible Rust bridge architecture, and multi-backend translation integration.
 
 ---
 

@@ -209,9 +209,9 @@ Guild Wars 2 icin gelistirilmis %100 yerel ve cevrimdisi calisan Turkce
 yerellestirme, font motoru ve yapay zeka makine cevirisi.
 
 [OZELLIKLER]:
-1. %100 Orijinal Turkce Font Destegi (version.dll + turkish_font.dll):
-   - 156 font boyutunun tamamini kapsayan ozel bellek enjeksiyonu.
-   - c, C, g, G, i, I, o, O, s, S, u, U karakterleri orijinal kalitede.
+1. Gelismis Turkce Font ve Karakter Destegi (version.dll + turkish_font.dll):
+   - Bellek ici ozel font enjeksiyonu ve genisletilmis karakter destegi.
+   - Akilli karakter modu (smart) ile arayuzdeki olasi harf kayiplari engellenir.
 
 2. Tamamen Cevrimdisi Makine Cevirisi (CTranslate2 + OPUS-MT):
    - Internet baglantisi gerektirmez; tamamen cevrimdisi calisir.
@@ -367,9 +367,9 @@ goto MENU
 Guild Wars 2 icin gelistirilmis ultra-hafif cevrimici Turkce font ve ceviri paketi.
 
 [OZELLIKLER]:
-1. %100 Orijinal Turkce Font Destegi (version.dll + turkish_font.dll):
-   - 156 font boyutunun tamamini kapsayan ozel bellek enjeksiyonu.
-   - c, C, g, G, i, I, o, O, s, S, u, U karakterleri orijinal kalitede.
+1. Gelismis Turkce Font ve Karakter Destegi (version.dll + turkish_font.dll):
+   - Bellek ici ozel font enjeksiyonu ve genisletilmis karakter destegi.
+   - Akilli karakter modu (smart) ile arayuzdeki olasi harf kayiplari engellenir.
 
 2. Coklu Bulut Ceviri Motoru Destegi:
    - Google Ceviri (Varsayilan, ucretsiz, limitsiz ve cok hizli).

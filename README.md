@@ -12,9 +12,9 @@
 [![Release](https://img.shields.io/badge/Release-v0.11.0--TR-brightgreen.svg)](../../releases/latest)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Guild Wars 2 için geliştirilmiş **tam kapsamlı Türkçe yerelleştirme paketi, iki ayrı bağımsız tek tıkla kurucu paneli (Çevrimdışı & Çevrimiçi), 156 font boyutunu kapsayan Türkçe font enjektörü** ve Epic Games Store / Steam / Standalone istemcilerle %100 uyumlu **evrensel köprü yükleyicisi**.
+Guild Wars 2 için geliştirilmiş **tam kapsamlı Türkçe yerelleştirme paketi, iki ayrı bağımsız tek tıkla kurucu paneli (Çevrimdışı & Çevrimiçi), Türkçe font enjektörü** ve Epic Games Store / Steam / Standalone istemcilerle uyumlu **evrensel köprü yükleyicisi**.
 
-Oyunun İngilizce istemcisinde eksik olan tüm Türkçe karakterleri (**ç, Ç, ğ, Ğ, ı, İ, ö, Ö, ş, Ş, ü, Ü**) oyunun orijinal yazı tipleriyle eksiksiz gösterir ve diyalogları, görevleri, arayüzü anlık olarak Türkçeye çevirir.
+Oyunun İngilizce istemcisinde eksik olan Türkçe karakterleri oyunun orijinal yazı tipleriyle uyumlu şekilde ekrana çizer, özel akıllı karakter moduyla bozulmaları önler ve diyalogları, görevleri, arayüzü anlık olarak Türkçeye çevirir.
 
 ---
 
@@ -59,10 +59,10 @@ En güncel sürümleri indirmek için GitHub Releases sayfasını ziyaret edebil
 * Çevrimdışı sürümde CPU çekirdek optimizasyonu, çevrimiçi sürümde ise tek tıkla motor geçişi sağlar.
 * Tek tıkla oyunu başlatabilir veya yamayı tamamen kaldırarak oyunu orijinal haline döndürebilirsiniz.
 
-### 2. %100 Orijinal Türkçe Font Desteği (`turkish_font.dll` & `version.dll`)
-* Guild Wars 2'nin `Gw2.dat` arşivindeki **156 font boyutunun tamamı** analiz edilmiş ve genişletilmiş Latin glifleri (Range 2: Latin Extended-A) `fontdue` vektörel motoruyla rasterize edilmiştir.
-* Oyun dosyalarına fiziksel zarar vermeden, bellek içi (RAM) `FileArchive::ReadFile` fonksiyonunu yönlendirerek Türkçe karakterleri orijinal oyun fontu kalitesinde ekrana çizer.
-* Harfleri kırpmaya veya İngilizceye benzetmeye (`s, i, g`) gerek kalmaz; kutucuk veya soru işareti hatası oluşmaz.
+### 2. Gelişmiş Türkçe Font & Akıllı Karakter Desteği (`turkish_font.dll` & `version.dll`)
+* Guild Wars 2'nin `Gw2.dat` arşivindeki font atlasları analiz edilmiş ve genişletilmiş Latin glifleri (Range 2: Latin Extended-A) vektörel motor ile rasterize edilmiştir.
+* Oyun dosyalarına fiziksel zarar vermeden, bellek içi (RAM) `FileArchive::ReadFile` fonksiyonunu yönlendirerek Türkçe karakterleri oyunun orijinal fontlarına entegre eder.
+* Oyun motorunun bazı arayüz pencerelerindeki ve belirli font tablolarındaki kısıtlamalar nedeniyle, modül içinde akıllı karakter uyumlulaştırma modu (`char_mode: smart`) devreye girer. Bu sayede harf kayıpları ve kutucuk hataları önlenerek metinlerin akıcı okunması sağlanır.
 
 ### 3. Evrensel Köprü Yükleyici (`version.dll`)
 * Guild Wars 2'nin özellikle **Epic Games Store** (`-eglv2`) ve yeni istemcilerde `d3d11.dll` dosyasını güvenlik sebebiyle atlamasını engelleyen Rust tabanlı, sıfır bağımlılıklı şeffaf bir köprüdür.
@@ -182,7 +182,7 @@ Bu proje, açık kaynak topluluğunun değerli çalışmaları üzerine inşa ed
 * **[morluto](https://github.com/morluto)**: [REA (Reverse Engineering Assistant)](https://github.com/morluto/rea) analiz araçları.
 * **[Raidcore Ekibi](https://raidcore.gg/Nexus)**: Guild Wars 2 için geliştirilen harika Nexus D3D11 Addon Engine.
 * **[Helsinki-NLP](https://github.com/Helsinki-NLP)** & **[OpenNMT CTranslate2](https://github.com/OpenNMT/CTranslate2)**: Çevrimdışı yerel makine çeviri modelleri.
-* **Geliştirici & Türkçe Uyarlama:** **[Euphrates6](https://github.com/Euphrates6)** & **Antigravity (Google DeepMind)** — 156 font boyutunun vektörel çizimi, Epic Games uyumlu Rust köprü mimarisi, yapay zeka entegrasyonu ve tam Türkçe karakter optimizasyonu.
+* **Geliştirici & Türkçe Uyarlama:** **[Euphrates6](https://github.com/Euphrates6)** & **Antigravity (Google DeepMind)** — Özel font enjeksiyonu, akıllı karakter optimizasyonu, Epic Games uyumlu Rust köprü mimarisi ve çoklu çeviri motoru entegrasyonu.
 
 ---
 
