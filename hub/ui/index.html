@@ -158,9 +158,13 @@
                 </div>
 
                 <div class="flex items-center gap-2">
-                    <button id="btn-install-all" onclick="installAll()" class="px-3.5 py-1.5 text-xs font-mono bg-ide-text text-ide-bg font-medium rounded-sm hover:opacity-90 transition-opacity flex items-center gap-2">
+                    <button id="btn-install-all" onclick="installAll()" class="px-3.5 py-1.5 text-xs font-mono bg-ide-text text-ide-bg font-medium rounded-sm hover:opacity-90 transition-opacity flex items-center gap-2" title="Tüm bileşenleri kur veya güncelle">
                         <i class="ph ph-download-simple text-sm"></i>
                         <span id="btn-install-all-label">TÜMÜNÜ KUR / GÜNCELLE</span>
+                    </button>
+                    <button id="btn-uninstall-mod" onclick="uninstallMod()" class="px-3 py-1.5 text-xs font-mono bg-ide-panel border border-red-500/40 text-red-400 rounded-sm hover:bg-red-500/10 hover:border-red-500/70 transition-colors flex items-center gap-1.5" title="Yüklü Türkçe yama bileşenlerini oyundan kaldır">
+                        <i class="ph ph-trash text-sm"></i>
+                        <span>MODU KALDIR</span>
                     </button>
                     <button onclick="launchGame()" class="px-3 py-1.5 text-xs font-mono bg-ide-panel border border-ide-border text-ide-text rounded-sm hover:bg-ide-hover transition-colors flex items-center gap-1.5" title="Guild Wars 2'yi Başlat">
                         <i class="ph ph-play text-sm"></i>
@@ -987,6 +991,19 @@
             btn.textContent = "TÜMÜNÜ KUR / GÜNCELLE";
             if (res) {
                 if (res.logs) res.logs.forEach(l => addLog("+", l));
+                if (res.status) renderState(res.status);
+            }
+        }
+
+        async function uninstallMod() {
+            if (!confirm("Guild Wars 2 Türkçe yama bileşenleri (Çeviri motoru, Font enjektörü ve modüller) kaldırılacaktır.\n\nEmin misiniz?")) {
+                return;
+            }
+            addLog("*", "Yüklü Türkçe yama bileşenleri kaldırılıyor...");
+            const res = await apiCall("uninstall_mod");
+            if (res) {
+                if (res.logs) res.logs.forEach(l => addLog("-", l));
+                addLog(res.ok ? "+" : "!", res.message);
                 if (res.status) renderState(res.status);
             }
         }

@@ -42,7 +42,7 @@ def main() -> None:
 
     module_toml = (
         'name = "Local Translator TR"\n'
-        'path = "Local_Translator_TR.exe"\n'
+        'command = "Local_Translator_TR.exe"\n'
         'args = ["--lang", "tr"]\n'
     )
     (mod_dir / "module.toml").write_text(module_toml, encoding="utf-8")
@@ -83,3 +83,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

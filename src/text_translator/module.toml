@@ -1,4 +1,4 @@
 name = "Local Translator TR"
-path = "Local_Translator_TR.exe"
+command = "Local_Translator_TR.exe"
 args = ["--lang", "tr"]
 

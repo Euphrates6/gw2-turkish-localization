@@ -405,13 +405,13 @@ class HubAPI:
         if exe_copied or (mod_dir / "Local_Translator_TR.exe").is_file():
             module_toml = (
                 'name = "Local Translator TR"\n'
-                'path = "Local_Translator_TR.exe"\n'
+                'command = "Local_Translator_TR.exe"\n'
                 'args = ["--lang", "tr"]\n'
             )
         else:
             module_toml = (
                 'name = "Local Translator TR"\n'
-                f'path = "{sys.executable.replace(chr(92), chr(92)*2)}"\n'
+                f'command = "{sys.executable.replace(chr(92), chr(92)*2)}"\n'
                 'args = ["lt_module.py", "--lang", "tr"]\n'
             )
         (mod_dir / "module.toml").write_text(module_toml, encoding="utf-8")
@@ -446,6 +446,105 @@ class HubAPI:
             logs.append(sync_res["message"])
 
         return {"ok": True, "logs": logs, "status": self.get_status()}
+
+    def uninstall_mod(self, remove_nexus: bool = False) -> dict:
+        """Safely uninstalls Guild Wars 2 Turkish Localization mod files.
+        Preserves other Nexus addons (e.g. ArcDPS) and d3d11.dll unless remove_nexus=True."""
+        if not self._game_dir:
+            return {"ok": False, "message": "Guild Wars 2 klasörü bulunamadı."}
+
+        logs = []
+        addons_dir = self._game_dir / "addons"
+
+        # 1. Terminate any running Local_Translator_TR process
+        try:
+            import subprocess
+            subprocess.run(
+                ["taskkill", "/F", "/IM", "Local_Translator_TR.exe", "/T"],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False
+            )
+        except Exception:
+            pass
+
+        # 2. Remove local_translator_tr module directory
+        tt_mod_dir = addons_dir / "text_translator" / "modules" / "local_translator_tr"
+        if tt_mod_dir.is_dir():
+            try:
+                shutil.rmtree(tt_mod_dir, ignore_errors=True)
+                logs.append("Local Translator TR modülü silindi.")
+            except Exception as e:
+                logs.append(f"Modül silinirken uyarı: {e}")
+
+        # If text_translator has no other modules, clean up or remove empty folder
+        tt_dir = addons_dir / "text_translator"
+        if tt_dir.is_dir():
+            modules_dir = tt_dir / "modules"
+            if modules_dir.is_dir() and not any(modules_dir.iterdir()):
+                try:
+                    shutil.rmtree(tt_dir, ignore_errors=True)
+                    logs.append("Text Translator yapılandırma dizini temizlendi.")
+                except Exception:
+                    pass
+
+        # 3. Remove text_translator.dll
+        tt_dll = addons_dir / "text_translator.dll"
+        if tt_dll.is_file():
+            try:
+                tt_dll.unlink(missing_ok=True)
+                logs.append("text_translator.dll kaldırıldı.")
+            except Exception as e:
+                logs.append(f"text_translator.dll silinirken uyarı: {e}")
+
+        # 4. Remove turkish_font.dll and marker
+        font_dll = addons_dir / "turkish_font.dll"
+        if font_dll.is_file():
+            try:
+                font_dll.unlink(missing_ok=True)
+                logs.append("turkish_font.dll kaldırıldı.")
+            except Exception as e:
+                logs.append(f"turkish_font.dll silinirken uyarı: {e}")
+        (addons_dir / "turkish_font.disabled").unlink(missing_ok=True)
+
+        # 5. Remove version.dll (proxy hook)
+        version_dll = self._game_dir / "version.dll"
+        if version_dll.is_file():
+            try:
+                version_dll.unlink(missing_ok=True)
+                logs.append("version.dll kaldırıldı.")
+            except Exception as e:
+                logs.append(f"version.dll silinirken uyarı: {e}")
+
+        # 6. Clean up Nexus AddonConfig.json entries for our mods
+        cfg_path = addons_dir / "Nexus" / "AddonConfig.json"
+        if cfg_path.is_file():
+            try:
+                raw = json.loads(cfg_path.read_text(encoding="utf-8-sig"))
+                if isinstance(raw, list):
+                    filtered = [
+                        item for item in raw
+                        if isinstance(item, dict) and item.get("Signature") not in (NEXUS_SIG_TEXT_TRANSLATOR, NEXUS_SIG_TURKISH_FONT)
+                    ]
+                    cfg_path.write_text(json.dumps(filtered, ensure_ascii=False, indent=2), encoding="utf-8")
+                    logs.append("Nexus eklenti kayıtları temizlendi.")
+            except Exception:
+                pass
+
+        # 7. Optionally remove d3d11.dll if requested
+        if remove_nexus:
+            d3d11 = self._game_dir / "d3d11.dll"
+            if d3d11.is_file():
+                try:
+                    d3d11.unlink(missing_ok=True)
+                    logs.append("Raidcore Nexus (d3d11.dll) kaldırıldı.")
+                except Exception as e:
+                    logs.append(f"d3d11.dll silinirken uyarı: {e}")
+
+        return {
+            "ok": True,
+            "message": "Guild Wars 2 Türkçe yama bileşenleri başarıyla kaldırıldı.",
+            "logs": logs,
+            "status": self.get_status()
+        }
 
     def toggle_mod(self, mod_id: str, enabled: bool) -> dict:
         if not self._game_dir:
