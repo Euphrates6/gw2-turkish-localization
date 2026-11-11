@@ -2,94 +2,85 @@
   <a href="README.md">Türkçe</a> • <b>English</b>
 </p>
 
-# Guild Wars 2 — Turkish Localization (GW2-TR)
-### Guild Wars 2 Turkish Localization & Mod Hub
+# GW2-TR: Guild Wars 2 Turkish Localization & Mod Manager
 
-[![Guild Wars 2](https://img.shields.io/badge/Game-Guild%20Wars%202-red.svg)](https://www.guildwars2.com/)
-[![Platform](https://img.shields.io/badge/Platform-Windows%20(64--bit)-blue.svg)]()
-[![Nexus](https://img.shields.io/badge/Framework-Raidcore%20Nexus-orange.svg)](https://raidcore.gg/Nexus)
-[![Release](https://img.shields.io/badge/Release-v0.12.0-brightgreen.svg)](../../releases/latest)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Game](https://img.shields.io/badge/Game-Guild%20Wars%202-red)](https://www.guildwars2.com/)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20x64-blue)]()
+[![Framework](https://img.shields.io/badge/Addon%20Loader-Raidcore%20Nexus-orange)](https://raidcore.gg/Nexus)
+[![Release](https://img.shields.io/badge/Release-v0.12.0-brightgreen)](https://github.com/Euphrates6/gw2-turkish-localization/releases/latest)
+[![License](https://img.shields.io/badge/License-MIT-gray)](LICENSE)
 
-An open-source Turkish localization project for Guild Wars 2, offering an offline neural translation engine, in-memory font support, and a simple management hub.
-
----
-
-## 🌟 Key Features
-
-* **Easy Setup (`GW2_TR_Hub.exe`):** Automatically detects your game directory; installs and updates Raidcore Nexus, the translation engine, and font injector with one click.
-* **In-Memory Turkish Font Support:** Enables complete Turkish character (`ç, ğ, ı, ö, ş, ü`) rendering in-game via RAM hooks without modifying game files (`Gw2.dat`).
-* **Offline Translation Engine:** Runs on a local neural model (OPUS-MT) with zero internet dependency. Item names and core terms are preserved for gameplay and guide compatibility.
-* **Instant Toggle Keybind (`ALT + T`):** Switch between English and Turkish on the fly while in-game. Fully customizable through the Hub interface.
-* **Translation Editor:** Edit and fine-tune in-game translations live or offline directly from the Hub interface or your browser.
+An open-source mod project for Guild Wars 2 providing an offline neural machine translation engine, in-memory font injection for Turkish characters, and a desktop mod management hub.
 
 ---
 
-## 📥 Downloads
+## Components
 
-Get the latest releases on the [GitHub Releases](../../releases/latest) page:
+The project consists of three core components:
 
-| File | Size | Description |
-| :--- | :--- | :--- |
-| 🎛️ **[GW2_TR_Hub.exe](../../releases/latest)** | ~280 MB | **Recommended:** Desktop installation hub with mod management and translation editor |
-| 📦 **[GW2_TR_v0.12.0_Manuel_Paket.zip](../../releases/latest)** | ~298 MB | **Manual:** Standalone zip package for manual extraction directly into the game root directory |
+* **Mod Manager (`GW2_TR_Hub.exe`):** Detects game installations, installs Raidcore Nexus addons (`d3d11.dll`, `version.dll`), configures hotkeys, and manages translation settings.
+* **Turkish Font Injector (`turkish_font.dll`):** Injects Turkish character rendering (`ç, ğ, ı, ö, ş, ü`) into game memory (RAM) at runtime without altering game data files (`Gw2.dat`).
+* **Local Translation Engine (`Local_Translator_TR.exe`):** Runs locally via CTranslate2 and OPUS-MT models. Item names, map locations, and gameplay attributes (stats, boons, conditions) are preserved in English for wiki and community compatibility, while dialogues and quest text are translated into Turkish.
 
 ---
 
-## 🚀 Installation
+## Installation
 
-### Method 1: GW2-TR Hub Setup (Recommended)
-1. Download and run **[`GW2_TR_Hub.exe`](../../releases/latest)**.
-2. Your game folder is automatically detected (or click *"Browse"* to select the folder containing `Gw2-64.exe`).
-3. Click **"INSTALL / UPDATE ALL COMPONENTS"**.
-4. Once completed, launch the game and play in Turkish!
+### Method 1: Automated Setup via GW2-TR Hub (Recommended)
 
-### Method 2: Manual Installation (Zip)
-1. Download **[`GW2_TR_v0.12.0_Manuel_Paket.zip`](../../releases/latest)**.
+1. Download and run `GW2_TR_Hub.exe` from [Releases](https://github.com/Euphrates6/gw2-turkish-localization/releases/latest).
+2. The application will detect your game folder automatically. If not found, select the folder containing `Gw2-64.exe` manually.
+3. Click "Install / Update Components".
+4. Launch the game once installation is complete.
+
+### Method 2: Manual Installation
+
+1. Download `GW2_TR_v0.12.0_Manuel_Paket.zip` from [Releases](https://github.com/Euphrates6/gw2-turkish-localization/releases/latest).
 2. Extract all contents (`d3d11.dll`, `version.dll`, `addons/`) directly into your Guild Wars 2 root folder (alongside `Gw2-64.exe`).
 3. Launch the game normally.
 
 ---
 
-## ⌨️ In-Game Keybind
+## Usage & Hotkeys
 
-* **`ALT + T`**: Instantly toggles translation on/off. You can customize this hotkey in the `GW2_TR_Hub` settings.
+* **`ALT + T`**: Toggles translation on/off in-game. The hotkey can be remapped via `GW2_TR_Hub`.
+* **Translation Editor:** Access `http://127.0.0.1:8770` in your web browser while the game is running, or use the Editor tab in `GW2_TR_Hub` to inspect and modify translation entries.
 
 ---
 
-## 🛠️ Building from Source
+## Building from Source
+
+Requirements: Python 3.10+, Visual Studio C++ Build Tools (or MinGW `g++`), Rust toolchain (`cargo`).
 
 ```powershell
-# Install dependencies:
+# Dependencies:
 pip install -r src/requirements.txt pyinstaller pywebview Pillow
 
-# Run verification tests:
+# Run tests:
 python test_gw2_tr.py
 python test_protocol.py
 
-# Build distribution packages:
+# Build binaries:
 python build_all.py
 python tools/assemble_manual_zip.py
 ```
 
 ---
 
-## 👥 Credits & Acknowledgments
+## Credits & Acknowledgments
 
-This project is built upon the invaluable contributions of the open-source community:
-
-* **[Euphrates6 (Fırat)](https://github.com/Euphrates6)**: Project architect, Turkish Font Injector (RAM Hook), GW2-TR Hub interface, and localization coordination. (Discord: `https://discord.com/users/287714928410755072`)
-* **[NikeGipple](https://github.com/NikeGipple)**: Upstream [gw2-nexus-local-translator](https://github.com/NikeGipple/gw2-nexus-local-translator) translation engine architecture and in-memory translation protocol.
+* **[Euphrates6 (Fırat)](https://github.com/Euphrates6)**: Project architecture, RAM-Hook C++ Font Injector, GW2-TR Hub interface, and localization coordination. (Discord: `https://discord.com/users/287714928410755072`)
+* **[NikeGipple](https://github.com/NikeGipple)**: Upstream [gw2-nexus-local-translator](https://github.com/NikeGipple/gw2-nexus-local-translator) translation engine architecture and IPC protocol.
 * **[ideka](https://github.com/ideka)**: Original [Text Translator](https://github.com/ideka/text-translator-public) Nexus addon and [modulep](https://github.com/ideka/modulep) IPC protocol for Guild Wars 2.
-* **[nourlie](https://github.com/nourlie)**: [GlyphCore](https://github.com/nourlie/GlyphCore) project for `Gw2.dat` AFNT font chunk structure, decompressor analysis, and RAM injection discoveries.
+* **[nourlie](https://github.com/nourlie)**: [GlyphCore](https://github.com/nourlie/GlyphCore) project for `Gw2.dat` AFNT font chunk analysis and memory injection research.
 * **[morluto](https://github.com/morluto)**: [REA (Reverse Engineering Assistant)](https://github.com/morluto/rea) reverse-engineering tools.
-* **[Raidcore Team](https://raidcore.gg/Nexus)**: The incredible Nexus D3D11 Addon Framework for Guild Wars 2.
-* **[Helsinki-NLP](https://github.com/Helsinki-NLP)** & **[OpenNMT CTranslate2](https://github.com/OpenNMT/CTranslate2)**: Offline neural machine translation framework and OPUS-MT Turkish models.
+* **[Raidcore Team](https://raidcore.gg/Nexus)**: The Nexus D3D11 Addon Framework for Guild Wars 2.
+* **[Helsinki-NLP](https://github.com/Helsinki-NLP)** & **[OpenNMT CTranslate2](https://github.com/OpenNMT/CTranslate2)**: Offline neural machine translation framework and OPUS-MT models.
 
 ---
 
-## 📜 License & Legal
+## License
 
-This project is licensed under the [MIT License](LICENSE).
+Distributed under the [MIT License](LICENSE).
 
-> **Legal Notice:** Guild Wars 2, ArenaNet, and NCSoft are registered trademarks of their respective owners. This project is an unofficial, community-driven, non-commercial localization and accessibility tool.
+*Legal Notice: Guild Wars 2, ArenaNet, and NCSoft are registered trademarks of their respective owners. This project is not affiliated with ArenaNet or NCSoft.*
