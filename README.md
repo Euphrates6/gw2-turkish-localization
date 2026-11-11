@@ -2,192 +2,171 @@
   <b>Türkçe</b> • <a href="README.en.md">English</a>
 </p>
 
-# Guild Wars 2 Türkçe Yerelleştirme, Font Motoru ve Çeviri Modülü
-### Guild Wars 2 Turkish Localization, Font Engine & Universal Addon Loader
+# Guild Wars 2 — Türkçe Yerelleştirme ve Mod Kurulum Merkezi (GW2-TR)
+### Guild Wars 2 Turkish Localization, Neural Translation Engine & Mod Installation Hub
 
 [![Guild Wars 2](https://img.shields.io/badge/Game-Guild%20Wars%202-red.svg)](https://www.guildwars2.com/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20(64--bit)-blue.svg)]()
 [![Storefront](https://img.shields.io/badge/Storefront-Epic%20Games%20%7C%20Steam%20%7C%20Standalone-purple.svg)]()
 [![Nexus](https://img.shields.io/badge/Framework-Raidcore%20Nexus-orange.svg)](https://raidcore.gg/Nexus)
-[![Release](https://img.shields.io/badge/Release-v0.11.0--TR-brightgreen.svg)](../../releases/latest)
+[![Release](https://img.shields.io/badge/Release-v0.12.0-brightgreen.svg)](../../releases/latest)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Guild Wars 2 için geliştirilmiş **tam kapsamlı Türkçe yerelleştirme paketi, iki ayrı bağımsız tek tıkla kurucu paneli (Çevrimdışı & Çevrimiçi), Türkçe font enjektörü** ve Epic Games Store / Steam / Standalone istemcilerle uyumlu **evrensel köprü yükleyicisi**.
+Guild Wars 2 için geliştirilmiş **tek tıkla kurulum ve yönetim merkezi (GW2-TR Hub)**, **bellek içi (RAM-Hook) Türkçe font enjektörü**, **eşya/stat/mekan korumalı yerel çeviri motoru** ve **canlı çeviri düzenleyicisi** içeren tam kapsamlı Türkçe yerelleştirme ekosistemidir.
 
-Oyunun İngilizce istemcisinde eksik olan Türkçe karakterleri oyunun orijinal yazı tipleriyle uyumlu şekilde ekrana çizer, özel akıllı karakter moduyla bozulmaları önler ve diyalogları, görevleri, arayüzü anlık olarak Türkçeye çevirir.
+Steam, Epic Games Store ve orijinal ArenaNet istemcileriyle %100 uyumludur.
 
 ---
 
-## 🚀 İki Ayrı Kurulum Seçeneği / Two Installation Editions
+## 🌟 Öne Çıkan Özellikler
 
-Kullanım tercihinize ve donanımınıza göre projede **2 ayrı bağımsız kurulum paketi** sunulmaktadır:
+### 1. 🎛️ IDE Temalı Mod Yönetim Merkezi (`GW2_TR_Hub.exe`)
+* **Tek Tıkla Kurulum & Otomasyon:** Steam, Epic Games ve kayıt defteri üzerindeki Guild Wars 2 kurulumunuzu otomatik algılar; Raidcore Nexus (`d3d11.dll`), çeviri motoru ve font enjektörünü tek tıkla kurup yapılandırır.
+* **Modern Koyu IDE Estetiği:** `#181818`, `#1e1e1e`, `#252526` monochromatic koyu tema, Phosphor ikon seti ve gömülü çevrimdışı Tailwind CSS motoru.
+* **Akıllı Çekmece (Drawer) Etkileşimi:** Mod satırlarının herhangi bir yerine tıklayarak alt ayar katmanlarına (kısayol ayarları, çeviri motoru seçimi, karakter modu) anında erişim.
+* **Gömülü Hakkında & İletişim Paneli:** Sürüm detayları, GitHub deposu ve Discord geliştirici profili bağlantıları.
 
-| Özellik | 🖥️ Çevrimdışı Sürüm (Offline Local) | ☁️ Çevrimiçi Sürüm (Online Light) |
+### 2. 🔤 Gelişmiş Bellek İçi Türkçe Font Enjektörü (`turkish_font.dll` & `version.dll`)
+* **Oyun Dosyalarına Sıfır Müdahale:** `Gw2.dat` veri tabanına fiziksel müdahalede bulunmaz. Bellek içi (RAM) `FileArchive::ReadFile` fonksiyonunu yönlendirerek 53 adet RLE sıkıştırmalı Range-2 Türkçe font atlasını oyunun orijinal yazı tipleriyle birleştirir.
+* **İsteğe Bağlı Çift Karakter Modu:**
+  * **AÇIK (Tam Glif Modu):** `Ş, ş, Ğ, ğ, İ, ı, Ç, ç, Ö, ö, Ü, ü` harflerinin tamamı oyun içinde kusursuz görüntülenir.
+  * **KAPALI (Akıllı 6 Harf Dönüşümü):** Font enjeksiyonu kapatıldığında oyun motorunda kutucuk (tofu) oluşturan yalnızca 6 harf (`Ş->S, ş->s, Ğ->G, ğ->g, İ->I, ı->i`) dönüştürülür; oyunun doğal olarak desteklediği `Ç, ç, Ö, ö, Ü, ü` harfleri Türkçe olarak korunur.
+* **Otomatik Önbellek Senkronizasyonu:** Karakter modu her değiştirildiğinde `cache.db` veritabanındaki kayıtlar saniyeler içinde yeni moda dönüştürülür.
+
+### 3. 🛡️ Eşya, Mekan, Stat, Set ve Boon/Condition Koruması
+Oyun deneyiminizi bozmamak, Wiki aramalarında, Trading Post (Pazar) işlemlerinde ve uluslararası takım iletişiminde %100 uyum sağlamak için 3 katmanlı hibrit koruma:
+* **Eşya İsimleri:** Silahlar, zırhlar, kupalar, materyaller orijinal İngilizce kalır (Örn: *Berserker's Pearl Broadsword*).
+* **Mekan & Harita İsimleri:** Haritalar, bölgeler, Waypoint ve POI adları İngilizce kalır (Örn: *Queensdale*, *Lion's Arch*).
+* **Statlar (Nitelikler):** `Power`, `Precision`, `Toughness`, `Vitality`, `Ferocity`, `Condition Damage`, `Expertise`, `Concentration`, `Healing Power`, `Agony Resistance`, `Critical Chance`, `Critical Damage`, `Boon Duration`, `Armor`, `Health` gibi tüm stat ve bonus satırları (`+120 Power`, `+%num1% Condition Damage`) orijinal İngilizce kalır.
+* **Stat Setleri (Prefixes):** `Berserker's`, `Viper's`, `Marauder's`, `Celestial`, `Diviner's`, `Harrier's`, `Minstrel's` vb. tüm stat kombinasyonları korunur.
+* **Boon & Condition'lar:** `Might`, `Fury`, `Quickness`, `Alacrity`, `Protection`, `Aegis`, `Bleeding`, `Burning`, `Torment`, `Vulnerability` gibi muharebe terimleri korunur.
+* **Diyaloglar & Arayüz:** Görev açıklamaları, hikaye diyalogları, kullanıcı arayüzü butonları ve rehber metinleri eksiksiz Türkçeleştirilir.
+
+### 4. 🧠 Çevrimdışı Sinirsel Çeviri & İsteğe Bağlı Bulut API
+* **Öncelikli Yerel Motor (Offline OPUS-MT):** CTranslate2 ve SentencePiece tabanlı Türkçe sinirsel makine çevirisi modeli doğrudan yerel işlemcinizde (CPU) çalışır. Sıfır internet, sıfır kota, sıfır gecikme!
+* **Opsiyonel Bulut Motorları:** İsteğe bağlı olarak Google Translate (ücretsiz), DeepL, Google Gemini veya OpenAI API anahtarlarınızı Hub üzerinden yapılandırabilirsiniz.
+
+### 5. ⌨️ Anlık Oyun İçi Aç/Kapa Kısayolu (`ALT + T`)
+* Oyundan çıkmadan tek tuşla çeviriyi kapatıp orijinal İngilizceye dönebilir, tekrar bastığınızda anında Türkçeye geçebilirsiniz.
+* Kısayol doğrudan Hub arayüzündeki interaktif tuş kaydedici ile (ScanCode destekli) özelleştirilebilir ve Nexus `InputBinds.json` ile anında senkronize olur.
+
+### 6. ✏️ Canlı ve Çevrimdışı Çeviri Düzenleyici (Translation Editor)
+* **Canlı Mod:** Oyun açıkken tarayıcınızdan `http://127.0.0.1:8770` adresine girerek oyunda gördüğünüz çevirileri anında düzenleyebilirsiniz.
+* **Çevrimdışı Mod:** Oyun kapalıyken bile Hub içerisindeki "Çeviri Düzenle" sekmesinden `cache.db`, `map_tr.db` ve `patch_tr.db` veritabanlarında anlık arama yapabilir, çevirileri düzeltebilir ve tek tıkla geri alabilirsiniz.
+
+---
+
+## 📥 İndirme / Download
+
+En güncel dosyaları [GitHub Releases](../../releases/latest) sayfasından edinebilirsiniz:
+
+| Dosya | Boyut | Açıklama |
 | :--- | :--- | :--- |
-| **Kurulum Dosyası** | `GW2_Turkce_Yama_Cevrimdisi.exe` | `GW2_Turkce_Yama_Cevrimici.exe` |
-| **Manuel Zip Paketi** | `Local_Translator_Cevrimdisi_TR.zip` (~112 MB) | `Local_Translator_Cevrimici_TR.zip` (~18 MB) |
-| **Çeviri Motoru** | **CTranslate2 + OPUS-MT** Yerel Makine Modeli | **Google Translate** (Ücretsiz) / **DeepL** / **Gemini** / **GPT** |
-| **İnternet İhtiyacı** | ❌ **Sıfır İnternet** (Tamamen Çevrimdışı) | ✔️ İnternet bağlantısı gerekir |
-| **Gecikme (Latency)** | ⚡ **0 ms** (Doğrudan Yerel CPU) | ~100-300 ms (Web API çağrısı) |
-| **API Anahtarı / Kota** | ❌ **Gerekmez**, sınırsız ve gizli | Google için gerekmez; AI için API Key girilebilir |
-| **Yapay Zeka Modeli** | ✔️ Pakete gömülü (Tak-Çalıştır) | Bulut üzerinde çalışır |
-| **İşlemci Ayarı** | ✔️ Çekirdek sayısı seçilebilir (2, 4, 6, 8) | Minimum CPU tüketimi |
+| 🎛️ **[GW2_TR_Hub.exe](../../releases/latest)** | ~280 MB | **Önerilen:** Masaüstü Kurulum & Yönetim Merkezi (Tek Tıkla Kurulum, Canlı Düzenleyici) |
+| 📦 **[GW2_TR_v0.12.0_Manuel_Paket.zip](../../releases/latest)** | ~298 MB | **Manuel:** Zip içeriğini doğrudan Guild Wars 2 ana dizinine çıkaran oyuncular için |
+| ⚙️ **[Local_Translator_TR.exe](../../releases/latest)** | ~227 MB | Bağımsız arka plan yerel çeviri motoru |
 
 ---
 
-## 📥 İndir / Download
+## 🚀 Kurulum Rehberi
 
-En güncel sürümleri indirmek için GitHub Releases sayfasını ziyaret edebilirsiniz:
+### Yöntem 1: GW2-TR Hub ile Tek Tıkla Kurulum (Önerilen)
+1. **[`GW2_TR_Hub.exe`](../../releases/latest)** dosyasını indirin ve çalıştırın.
+2. Program Guild Wars 2 klasörünüzü otomatik olarak algılayacaktır. (Gerekirse *"Gözat"* butonuyla `Gw2-64.exe` dosyasının bulunduğu klasörü seçebilirsiniz).
+3. **"TÜM BİLEŞENLERİ KUR / GÜNCELLE"** butonuna tıklayın. Nexus (`d3d11.dll`), Text Translator, Font Enjektörü ve Çevrimdışı Türkçe modeli saniyeler içinde kurulacaktır.
+4. **"Guild Wars 2 Başlat"** butonuna basarak doğrudan Türkçe oynamaya başlayın!
 
-* 💻 **[GW2_Turkce_Yama_Cevrimdisi.exe İndir (GitHub Releases)](../../releases/latest)** *(Çevrimdışı Tek Tıkla Kurucu)*
-  * Tamamen yerel bilgisayarınızda çalışır; internete, API anahtarına ihtiyaç duymaz.
-  * Pakete gömülü OPUS-MT Türkçe yapay zeka modelini tek tıkla kurar.
-* 📦 **[Local_Translator_Cevrimdisi_TR.zip İndir](../../releases/latest)** *(Çevrimdışı Manuel Kurulum)*
-
-* ☁️ **[GW2_Turkce_Yama_Cevrimici.exe İndir (GitHub Releases)](../../releases/latest)** *(Çevrimiçi Ultra-Hafif Kurucu)*
-  * Ultra-küçük indirme boyutu (~18 MB).
-  * Google Çeviri (varsayılan, ücretsiz, limitsiz), DeepL, Google Gemini 1.5 Flash veya OpenAI GPT kullanır.
-* 📦 **[Local_Translator_Cevrimici_TR.zip İndir](../../releases/latest)** *(Çevrimiçi Manuel Kurulum)*
-
----
-
-## Temel Özellikler
-
-### 1. Bağımsız Tek Tıkla Kurucu & Kontrol Panelleri
-* Oyuncuları zip açma, klasör arama ve karmaşık addon menüleriyle uğraştırmaz.
-* Steam, Epic Games ve Registry üzerindeki Guild Wars 2 kurulumlarını otomatik tespit eder.
-* Çevrimdışı sürümde CPU çekirdek optimizasyonu, çevrimiçi sürümde ise tek tıkla motor geçişi sağlar.
-* Tek tıkla oyunu başlatabilir veya yamayı tamamen kaldırarak oyunu orijinal haline döndürebilirsiniz.
-
-### 2. Gelişmiş Türkçe Font & Akıllı Karakter Desteği (`turkish_font.dll` & `version.dll`)
-* Guild Wars 2'nin `Gw2.dat` arşivindeki font atlasları analiz edilmiş ve genişletilmiş Latin glifleri (Range 2: Latin Extended-A) vektörel motor ile rasterize edilmiştir.
-* Oyun dosyalarına fiziksel zarar vermeden, bellek içi (RAM) `FileArchive::ReadFile` fonksiyonunu yönlendirerek Türkçe karakterleri oyunun orijinal fontlarına entegre eder.
-* Oyun motorunun bazı arayüz pencerelerindeki ve belirli font tablolarındaki kısıtlamalar nedeniyle, modül içinde akıllı karakter uyumlulaştırma modu (`char_mode: smart`) devreye girer. Bu sayede harf kayıpları ve kutucuk hataları önlenerek metinlerin akıcı okunması sağlanır.
-
-### 3. Evrensel Köprü Yükleyici (`version.dll`)
-* Guild Wars 2'nin özellikle **Epic Games Store** (`-eglv2`) ve yeni istemcilerde `d3d11.dll` dosyasını güvenlik sebebiyle atlamasını engelleyen Rust tabanlı, sıfır bağımlılıklı şeffaf bir köprüdür.
-* `Gw2-64.exe`'nin statik import tablosundan faydalanarak oyun başlarken otomatik devreye girer; **Nexus**, **Türkçe Font Enjektörü** ve **Çeviri Motorunu** doğrudan oyuna bağlar.
-
-### 4. Güvenli ve Sıfır Ban Riski
-* `Gw2.dat` oyun veri tabanını fiziksel olarak modifiye etmez.
-* Raidcore Nexus ekosistemi ve güvenli Windows DLL yönlendirmesiyle çalışır; ArenaNet üçüncü parti kullanım politikalarıyla tam uyumludur.
+### Yöntem 2: Manuel Kurulum (Zip)
+1. **[`GW2_TR_v0.12.0_Manuel_Paket.zip`](../../releases/latest)** dosyasını indirin.
+2. Zip içerisindeki tüm dosya ve klasörleri (`d3d11.dll`, `version.dll`, `addons/`) doğrudan Guild Wars 2 oyununuzun ana klasörüne (`Gw2-64.exe` yanına) çıkartın.
+3. Oyunu başlatın.
 
 ---
 
-## Kurulum
-
-### Yöntem 1: Tek Tıkla Kurulum (Önerilen)
-1. Tercih ettiğiniz sürümün kurucusunu indirin (`GW2_Turkce_Yama_Cevrimdisi.exe` veya `GW2_Turkce_Yama_Cevrimici.exe`).
-2. Programı çalıştırın; oyun klasörünüz otomatik olarak algılanacaktır.
-3. **"Türkçe Yamayı Kur"** butonuna tıklayın.
-4. **"Oyunu Başlat"** butonuna basarak doğrudan Türkçe oynamaya başlayın!
-
-### Yöntem 2: Manuel Kurulum
-1. [Releases](../../releases/latest) sayfasından `Local_Translator_Cevrimdisi_TR.zip` veya `Local_Translator_Cevrimici_TR.zip` dosyasını indirin.
-2. Zip içerisindeki tüm dosya ve klasörleri (`version.dll`, `d3d11.dll`, `addons/` vb.) doğrudan **Guild Wars 2 oyununuzun ana klasörüne** (`Gw2-64.exe` dosyasının yanına) çıkartın.
-3. Oyunu her zamanki gibi başlatın.
-
-### Çeviri Modunu Oyun İçinde Açıp Kapatma (Anlık Toggle Kısayolu)
-İngilizce terimleri, wiki aramalarını veya yetenek isimlerini orijinal dilinde görmek için oyundan çıkmadan tek tuşla Türkçe ve İngilizce arasında geçiş yapabilirsiniz:
-1. Oyunda **`Ctrl + O`** tuşuna basarak Nexus menüsünü açın.
-2. Üstteki **`Keybinds`** sekmesine geçin.
-3. **Text Translator** altındaki **`Toggle Show Translated`** seçeneğini bulun.
-4. Yanındaki boş kutucuğa tıklayarak dilediğiniz bir kısayol tuşu atayın (Örn: **`Alt + T`**, **`F11`** veya **`Pause/Break`**).
-5. Bu tuşa her bastığınızda oyun RAM seviyesinde anında Türkçe ve orijinal İngilizce arasında geçiş yapar.
-
----
-
-## Proje Mimarisi
+## 📁 Proje Mimarisi
 
 ```
 gw2-turkish-localization/
-├── loader/                  # Rust ile yazılmış sıfır bağımlılıklı version.dll proxy köprüsü
-│   ├── Cargo.toml
-│   └── src/lib.rs
-├── font-addon/              # C++ ile yazılmış bellek içi AFNT font enjektörü (turkish_font.dll)
-│   ├── main.cpp
-│   ├── Nexus.h
-│   └── resource.rc
-├── src/                     # Python çeviri sunucusu ve çoklu motor adaptörleri
-│   ├── lt_server.py         # CTranslate2 / Google / DeepL / Gemini / OpenAI sunucusu
-│   ├── lt_module.py         # Nexus Text Translator IPC iletişim protokolü
-│   └── patch_db.py          # SQLite önbellek ve sözlük yönetimi
-├── glossary/                # GW2 oyun terimleri ve Türkçe sözlük
-│   └── glossary_tr.json
-├── TR/
-│   ├── config.json          # Varsayılan yapılandırma
-│   └── model/               # OPUS-MT Türkçe yerel yapay zeka modeli (Çevrimdışı Sürüm)
-│       ├── model.bin
-│       ├── shared_vocabulary.json
-│       ├── source.spm
-│       ├── target.spm
-│       └── config.json
-├── installer/               # Modern PySide6 tabanlı kontrol panelleri ve kurucular
-│   ├── gw2_control_panel.py
-│   ├── GW2_Turkce_Yama_Cevrimdisi.spec
-│   └── GW2_Turkce_Yama_Cevrimici.spec
-├── assemble_release.py      # Çevrimdışı ve Çevrimiçi paket derleme betiği
-└── create_zip.py            # Release zip sıkıştırıcı
+├── assets/                  # Derlenmiş DLL'ler, eklentiler ve ikonlar
+│   ├── turkish_font.dll     # C++ Range-2 AFNT font enjektörü (Gömülü 53 atlas)
+│   ├── version.dll          # Rust tabanlı erken başlatma proxy köprüsü
+│   ├── d3d11.dll            # Raidcore Nexus Addon Loader
+│   ├── text_translator.dll  # Text Translator Nexus eklentisi
+│   ├── app_icon.ico         # Çok katmanlı IDE altıgen Windows ikonu
+│   └── app_icon.png         # 1024x1024 şeffaf PNG logo
+├── hub/                     # Masaüstü Kurulum & Yönetim Merkezi (pywebview)
+│   ├── app.py               # WebView2 & Nexus IPC köprüsü, kısayol yönetimi
+│   └── ui/                  # Koyu IDE temalı arayüz (#181818, #1e1e1e)
+│       ├── index.html       # 5 sekmeli ana panel (Mods, Editor, Downloads, Settings, About)
+│       ├── tailwind.js      # Gömülü çevrimdışı Tailwind motoru
+│       ├── phosphor.css     # Gömülü Phosphor ikon CSS'i
+│       ├── Phosphor.woff2   # Gömülü Phosphor webfont
+│       ├── app_icon.png     # Menü logosu
+│       └── favicon.ico      # Sekme ikonu
+├── src/                     # Python çeviri sunucusu ve motor çekirdeği
+│   ├── lt_server.py         # v0.12.0 Türkçe-Özel motor (Stat/Eşya/Boon koruması)
+│   ├── lt_module.py         # Text Translator IPC iletişim modülü
+│   ├── patch_db.py          # SQLite WAL önbellek ve karakter modu senkronizasyonu
+│   ├── editor.py            # Canlı ve Çevrimdışı Çeviri Düzenleyici (Web & Hub)
+│   ├── map_upload.py        # Harita verisi yükleme yardımcısı
+│   ├── glossary_tr.default.json
+│   └── requirements.txt
+├── tools/                   # Üretim ve bakım araçları
+│   ├── make_icon.py         # Altıgen ikon üretim aracı
+│   ├── update_glossary_mechanics.py # Stat & mekanik terim güncelleyici
+│   └── assemble_manual_zip.py       # Manuel zip derleme otomasyonu
+├── TR/                      # Türkçe dil modelleri ve yapılandırma
+│   ├── config.json          # Varsayılan motor ayarları
+│   ├── contributor.json     # Geliştirici profili
+│   ├── glossary_tr.json     # 3.600+ terim, stat, set ve boon sözlüğü
+│   └── model/               # 35 MB CTranslate2 OPUS-MT yerel sinirsel model
+├── build_all.py             # Tek komutla tüm EXE ve paketleri derleme betiği
+├── test_gw2_tr.py           # 6/6 test paketi (Font, Karakter, Stat, Cache, Keybind)
+└── test_protocol.py         # Nexus Text Translator binary IPC test protokolü
 ```
 
 ---
 
-## Kaynak Koddan Derleme (Build from Source)
+## 🛠️ Kaynak Koddan Derleme (Build from Source)
 
-### 1. Çeviri Modüllerini Derleme (Python / PyInstaller)
-```bash
-# Çevrimdışı sürüm (CTranslate2 dahil):
-pyinstaller Local_Translator_TR.spec
+Gereksinimler: Python 3.10+, Visual Studio C++ Build Tools (veya MinGW `g++`), Rust `cargo`.
 
-# Çevrimiçi ultra-hafif sürüm:
-pyinstaller Local_Translator_TR_light.spec
-```
+```powershell
+# 1. Bağımlılıkları yükleyin:
+pip install -r src/requirements.txt pyinstaller pywebview Pillow
 
-### 2. Köprü Yükleyici (Rust)
-```bash
-cd loader
-cargo build --release
-# Çıktı: loader/target/release/version.dll
-```
+# 2. Testleri çalıştırın:
+python test_gw2_tr.py
+python test_protocol.py
 
-### 3. Font Eklentisi (C++)
-```bash
-cd font-addon
-windres resource.rc -O coff -o resource.res
-g++ -O3 -shared main.cpp resource.res -o turkish_font.dll -lucrt -lkernel32
-```
+# 3. Tüm çalıştırılabilir dosyaları ve paketleri derleyin:
+python build_all.py
+python tools/assemble_manual_zip.py
 
-### 4. Paketleri Toplama ve Zip Oluşturma
-```bash
-# Çevrimdışı ve Çevrimiçi paketleri hazırla:
-python assemble_release.py --all
-
-# Dağıtım ziplerini oluştur:
-python create_zip.py
-
-# Kurucu çalıştırılabilir dosyalarını (EXE) derle:
-pyinstaller --distpath dist installer/GW2_Turkce_Yama_Cevrimdisi.spec
-pyinstaller --distpath dist installer/GW2_Turkce_Yama_Cevrimici.spec
+# Çıktılar dist/ klasöründe üretilecektir:
+# - dist/GW2_TR_Hub.exe
+# - dist/Local_Translator_TR.exe
+# - dist/GW2_TR_v0.12.0_Manuel_Paket.zip
 ```
 
 ---
 
-## Katkıda Bulunanlar & Teşekkürler (Credits & Acknowledgments)
+## 👥 Katkıda Bulunanlar & Teşekkürler (Credits & Acknowledgments)
 
 Bu proje, açık kaynak topluluğunun değerli çalışmaları üzerine inşa edilmiştir:
 
-* **[ideka](https://github.com/ideka)**: Guild Wars 2 için geliştirilen temel [Text Translator](https://github.com/ideka/text-translator-public) Nexus eklentisi ve [modül protokolü](https://github.com/ideka/modulep).
-* **[NikeGipple](https://github.com/NikeGipple)**: Temel alınan açık kaynaklı [GW2 Local Translator](https://github.com/NikeGipple/gw2-nexus-local-translator) yerel çeviri modülü mimarisi ve altyapısı.
-* **[nourlie](https://github.com/nourlie)**: [GlyphCore](https://github.com/nourlie/GlyphCore) projesiyle `Gw2.dat` AFNT font chunk yapısı, decompressor analizi ve bellek enjeksiyonu keşifleri.
+* **[Euphrates6 (Fırat)](https://github.com/Euphrates6)**: Proje mimarı, Türkçe Font Injector (RAM Hook), GW2-TR Hub arayüzü, stat/boon koruma filtreleri ve yerelleştirme koordinasyonu. (Discord: `https://discord.com/users/287714928410755072`)
+* **[NikeGipple](https://github.com/NikeGipple)**: Temel alınan açık kaynaklı [gw2-nexus-local-translator](https://github.com/NikeGipple/gw2-nexus-local-translator) yerel çeviri motoru mimarisi ve bellek içi çeviri protokolü.
+* **[ideka](https://github.com/ideka)**: Guild Wars 2 için geliştirilen temel [Text Translator](https://github.com/ideka/text-translator-public) Nexus eklentisi ve [modulep](https://github.com/ideka/modulep) IPC protokolü.
+* **[nourlie](https://github.com/nourlie)**: [GlyphCore](https://github.com/nourlie/GlyphCore) projesiyle `Gw2.dat` AFNT font chunk analizi, decompressor ve bellek enjeksiyonu keşifleri.
 * **[morluto](https://github.com/morluto)**: [REA (Reverse Engineering Assistant)](https://github.com/morluto/rea) analiz araçları.
-* **[Raidcore Ekibi](https://raidcore.gg/Nexus)**: Guild Wars 2 için geliştirilen harika Nexus D3D11 Addon Engine.
-* **[Helsinki-NLP](https://github.com/Helsinki-NLP)** & **[OpenNMT CTranslate2](https://github.com/OpenNMT/CTranslate2)**: Çevrimdışı yerel makine çeviri modelleri.
-* **Geliştirici & Türkçe Uyarlama:** **[Euphrates6](https://github.com/Euphrates6)** & **Antigravity (Google DeepMind)** — Özel font enjeksiyonu, akıllı karakter optimizasyonu, Epic Games uyumlu Rust köprü mimarisi ve çoklu çeviri motoru entegrasyonu.
+* **[Raidcore Ekibi](https://raidcore.gg/Nexus)**: Guild Wars 2 için geliştirilen harika Nexus D3D11 Addon Framework.
+* **[Helsinki-NLP](https://github.com/Helsinki-NLP)** & **[OpenNMT CTranslate2](https://github.com/OpenNMT/CTranslate2)**: Çevrimdışı yerel sinirsel makine çevirisi altyapısı ve OPUS-MT Türkçe modelleri.
 
 ---
 
-## Lisans & Yasal Uyarı (License & Legal)
+## 📜 Lisans & Yasal Uyarı (License & Legal)
 
 Bu proje [MIT Lisansı](LICENSE) ile lisanslanmıştır.
 
-> **Yasal Uyarı:** Guild Wars 2, ArenaNet ve NCSoft markaları ve telif hakları ilgili sahiplerine aittir. Bu proje resmi bir ArenaNet ürünü değildir; oyuncu topluluğu tarafından kar amacı gütmeksizin geliştirilmiş açık kaynaklı bir yerelleştirme aracıdır.
+> **Yasal Uyarı:** Guild Wars 2, ArenaNet ve NCSoft markaları ve telif hakları ilgili sahiplerine aittir. Bu proje resmi bir ArenaNet ürünü değildir; oyuncu topluluğu tarafından kar amacı gütmeksizin geliştirilmiş açık kaynaklı bir yerelleştirme ve erişilebilirlik aracıdır.

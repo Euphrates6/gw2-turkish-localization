@@ -1,28 +1,25 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all
 
-datas = [('src/glossary_tr.default.json', '.')]
+datas = [('E:/Gw2 TR Translate/Gw2-TR/src/glossary_tr.default.json', '.')]
 binaries = []
 hiddenimports = []
 tmp_ret = collect_all('ctranslate2')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-try:
-    tmp_ret2 = collect_all('sentencepiece')
-    datas += tmp_ret2[0]; binaries += tmp_ret2[1]; hiddenimports += tmp_ret2[2]
-except Exception:
-    pass
+tmp_ret = collect_all('sentencepiece')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 
 a = Analysis(
-    ['src/lt_module.py'],
-    pathex=['src'],
+    ['E:/Gw2 TR Translate/Gw2-TR/src/lt_module.py'],
+    pathex=['E:/Gw2 TR Translate/Gw2-TR/src'],
     binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['torch', 'transformers', 'huggingface_hub'],
+    excludes=[],
     noarchive=False,
     optimize=0,
 )
@@ -31,26 +28,21 @@ pyz = PYZ(a.pure)
 exe = EXE(
     pyz,
     a.scripts,
+    a.binaries,
+    a.datas,
     [],
-    exclude_binaries=True,
     name='Local_Translator_TR',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
+    upx_exclude=[],
+    runtime_tmpdir=None,
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-)
-coll = COLLECT(
-    exe,
-    a.binaries,
-    a.datas,
-    strip=False,
-    upx=True,
-    upx_exclude=[],
-    name='Local_Translator_TR',
+    icon=['E:/Gw2 TR Translate/Gw2-TR/assets/app_icon.ico'],
 )

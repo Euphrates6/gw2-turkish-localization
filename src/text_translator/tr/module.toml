@@ -1,3 +1,0 @@
-name = "Turkce (Local Translator)"
-command = "Local_Translator_TR.exe"
-args = ["--lang", "tr", "--char-mode", "full"]

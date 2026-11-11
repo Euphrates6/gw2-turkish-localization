@@ -1,37 +1,20 @@
-"""Local Translator: local translation module for Ideka's "Text Translator" Nexus addon.
+"""Local Translator TR: Guild Wars 2 Türkçe Çeviri Modülü (v0.12.0 çekirdeği).
 
-Local Translator is meant for any language the game can be translated into from English. The
-same exe serves every language (lt_server.LANGUAGES): each one is its own module folder
-(local_translator_<code>, e.g. local_translator_it, local_translator_pt_br) and the language comes
-from "--lang <code>" in module.toml or, without it, from the folder name. An unknown language
-stops the module (never another language by mistake). The language sets the cache key, the data
-folder (IT\\, PT_BR\\), the *_<code> files, the GitHub files and the model.
-
-Protocol: https://github.com/ideka/modulep (version 2, Text Translator v0.2.0 or newer). The
-addon starts this exe itself (module.toml), sends every game text with its string ID and the hash
-of its English text (XXH3-64) on stdin and reads the translations on stdout, each with the same
-hash; stderr goes to the Nexus log. The addon keeps the translations in cache.db next to this exe
-(table translations: id, cache_key, src_hash, version, timestamp, text) and asks again for a text
-whose hash changed (game update). It also takes translations it did not ask for (with the right id
-and hash), shows them at once and saves them: that is how a new patch reaches the game while it
-runs (patch_db.CachePatch.apply, checked every lt.UPDATE_INTERVAL).
-
-Glossary, OPUS-MT engine and map come from lt_server.py, imported as a library; the patch archive
-(IT\\patch_it.db, updated from GitHub piece by piece) from patch_db.py.
-Data lives in IT\\ (PT_BR\\...) next to this exe (model, glossary, patch_it.db, cache_it.jsonl,
-map_it.db; *_pt_br for Brazilian Portuguese).
-
-Developer commands (strumenti.bat option 32; the review ones are no longer used): --export-review, --import-review and
---show-keys text|all|off ("show keys" mode: with the file IT\\show_keys.txt the texts in the game
-start with their string ID, "44547 - Bambini"; the file holds "text" or "all", see patch_db).
-
-Contributors (file IT\\contributor.json, see editor.py): the correction page on 127.0.0.1 saves
-suggestions into map_it.db, shown in game at once and kept over the patch until the patch entry
-of their key changes (lt_server.SUGGESTIONS_SCHEMA).
+Ideka'nın "Text Translator" Nexus eklentisi ile modulep v2 protokolü üzerinden haberleşir.
+Yalnızca Türkçe (tr) dilini destekler.
+Özellikler:
+- Çevrimdışı CTranslate2 + OPUS-MT çeviri motoru (ana öncelik) + opsiyonel bulut motorları
+- GW2 Turkish Font Injector durumuna göre dinamik karakter modu:
+  * Font Injector AÇIK ("full"): ş, Ş, ğ, Ğ, İ, ı, ç, Ç, ö, Ö, ü, Ü tam görünür
+  * Font Injector KAPALI ("ascii_6"): yalnızca oyunda kutucuk çıkaran 6 harf (ş->s, Ş->S, ğ->g,
+    Ğ->G, İ->I, ı->i) dönüştürülür; ç, Ç, ö, Ö, ü, Ü korunur
+- Eşya ve Mekan İsimlerini İngilizce Koruma (3 katmanlı hibrit filtre)
+- Canlı Çeviri Düzenleyici (127.0.0.1:8770)
 """
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 import queue
@@ -44,78 +27,76 @@ import time
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-# PyInstaller bundles lt_server.py too (--paths).
-sys.path.insert(0, str(Path(__file__).resolve().parent))  # lt_server.py sits next to this file
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 import lt_server as lt  # noqa: E402
 from patch_db import (CachePatch, PieceUpdater, SHOW_MODES, has_table, key_tag,  # noqa: E402
-                      sync_key_tags)
+                      shown_text, sync_key_tags, untagged)
 import editor  # noqa: E402
+import map_upload  # noqa: E402
 
-VERSION = "0.11.0"       # version of the release: raise it at every new zip (shown in the log)
-PROTOCOL = 2              # Text Translator v0.2.0 (texts carry the hash of the English)
-SOURCE_LANG = 0          # English: the game must be set to English
-RESULT_VERSION = 2       # raised to 2 so addon clears old broken character cache
-CACHE_KEY = lt.LANG.cache_key  # set by main() once the language is known
+VERSION = "0.12.0"
+PROTOCOL = 2
+SOURCE_LANG = 0
+RESULT_VERSION = 1
+CACHE_KEY = lt.LANG.cache_key
 MAX_MESSAGE = 0x10_0000
 KIND_TEXT, KIND_CANCEL = 0, 1
 
-STATS_EVERY = 300  # default seconds between two "stats" lines in the log (--stats-every)
-SHOW_KEYS_FILE = "show_keys.txt"  # in IT\: "show keys" mode (see patch_db.sync_key_tags)
+STATS_EVERY = 300
+SHOW_KEYS_FILE = "show_keys.txt"
+CONFIG_FILE = "config.json"
 
 
 def show_keys_mode(lang_dir: Path) -> str | None:
-    """Mode of the "show keys" file: "all" if it says so (also "tutte"), otherwise "text";
-    None without the file. An empty file (made by hand by a helper) means "text". A contributor
-    sets it in IT\\contributor.json instead (editor.contributor), which wins over the file."""
     try:
         words = (lang_dir / SHOW_KEYS_FILE).read_text(encoding="utf-8", errors="replace").split()
     except OSError:
         return None
-    return "all" if words and words[0].lower() in ("all", "tutte", "tutti") else "text"
+    return "all" if words and words[0].lower() in ("all", "hepsi", "tum") else "text"
+
+
+def load_tr_config(lang_dir: Path, module_dir: Path) -> dict:
+    """TR/config.json ayarlarını okur ve Font Injector durumunu tespit eder."""
+    cfg = {
+        "backend": "offline",
+        "threads": 0,
+        "font_injector": True,
+        "char_mode": "full",
+        "keep_items_english": True,
+        "api_key": "",
+        "model_name": "",
+    }
+    cfg_path = lang_dir / CONFIG_FILE
+    if cfg_path.is_file():
+        try:
+            raw = json.loads(cfg_path.read_text(encoding="utf-8-sig"))
+            if isinstance(raw, dict):
+                cfg.update(raw)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("config.json okunamadi (%s): varsayilan ayarlar kullaniliyor", exc)
+
+    # Check if turkish_font.disabled marker exists in addons/ directory
+    # module_dir is typically <GW2>/addons/text_translator/modules/local_translator_tr
+    addons_dir = module_dir.parent.parent.parent
+    disabled_marker = addons_dir / "turkish_font.disabled"
+    if disabled_marker.is_file() or cfg.get("font_injector") is False or cfg.get("char_mode") == "ascii_6":
+        cfg["font_injector"] = False
+        cfg["char_mode"] = "ascii_6"
+    else:
+        cfg["font_injector"] = True
+        cfg["char_mode"] = "full"
+    return cfg
+
 
 TRIVIAL_RE = re.compile(r"\(\(\d+\)\)|\(new string\)")
 
-CHAT_CHANNEL_RE = re.compile(
-    r'^(?:\[\d{1,2}:\d{2}(?::\d{2})?\]\s*)?'  # optional timestamp [12:34] or [12:34:56]
-    r'(?:<c=[^>]*>)?'                       # optional color tag
-    r'\[(?:Map|Say|Party|Squad|Guild|Team|Whisper|Shout|Local|Emote|W to [^\]]+|W from [^\]]+|[MPSGTW])\]' # channel tag
-    r'(?:</c>)?',
-    re.IGNORECASE
-)
-
-EMOTE_RE = re.compile(
-    r'^\s*%\s*str\d+%\s+(?:waves|cheers|dances|points|salutes|bows|kneels|laughs|cries|shouts|whispers|tells|says|flexes|sleeps|sits|stands|applauds|beckons|begs|bored|bounces|brb|cheer|clap|comfort|cower|cry|cuddle|dance|facepalm|fistbump|flex|flirt|gasp|gears|giggle|groan|grumble|headache|hiccup|highfive|hug|kiss|kneel|laugh|no|pat|point|ponder|pout|ready|sad|salute|scared|shiver|shrug|sigh|sit|sleep|smirk|snarl|sneeze|sorrow|spit|stomp|stretch|surprised|taunt|thanks|thank|threaten|thumbsdown|thumbsup|tired|upset|wave|welcome|whine|whistle|wink|yawn|yay|yes)\b',
-    re.IGNORECASE
-)
-
-VOCAL_CALLOUT_RE = re.compile(
-    r'^\s*\((?:laugh|cheer|sigh|grunt|giggle|chuckle|yawn|groan|snort|cough)\)',
-    re.IGNORECASE
-)
-
-WHISPER_RE = re.compile(
-    r'(?:\bwhispers:\s+|\bwhispered:\s+)',
-    re.IGNORECASE
-)
-
-
-def is_chat_or_player_message(text: str) -> bool:
-    """Return True if text looks like an in-game chat message, emote, or vocal shout that should not be translated."""
-    if not text:
-        return False
-    t = text.strip()
-    return bool(CHAT_CHANNEL_RE.search(t) or EMOTE_RE.search(t) or VOCAL_CALLOUT_RE.search(t) or WHISPER_RE.search(t))
-
 log = logging.getLogger("lt")
-
 
 
 # --------------------------------------------------------------------------- #
 # Streams and protocol
 # --------------------------------------------------------------------------- #
 def binary_streams():
-    """Real stdin/stdout/stderr as binary files. A --noconsole exe may get sys.stdin = None
-    even when the addon passes pipes, so on Windows the handles are taken from the OS."""
     if os.name != "nt":
         return sys.stdin.buffer, sys.stdout.buffer, sys.stderr.buffer
     import ctypes
@@ -173,20 +154,14 @@ class Channel:
     def handshake(self) -> None:
         self.send([struct.pack("<IiI", PROTOCOL, SOURCE_LANG, RESULT_VERSION) + put_string(CACHE_KEY)])
 
-    CHAR_MODE = "off"
-
-    @classmethod
-    def text(cls, key: int, src_hash: int, text: str) -> bytes:
-        """A translation; src_hash is the hash the addon sent with the English text."""
-        if lt.LANG.code == "tr":
-            text = lt.fix_turkish_chars(text, cls.CHAR_MODE)
+    @staticmethod
+    def text(key: int, src_hash: int, text: str) -> bytes:
         return bytes([KIND_TEXT]) + struct.pack("<IQ", key, src_hash) + put_string(text)
 
     @staticmethod
     def parse_text(msg: bytes) -> tuple[int, int, str] | None:
-        """(id, hash, English text) of an addon Text message, None for other kinds."""
         if len(msg) < 15 or msg[0] != KIND_TEXT:
-            return None  # unknown message kinds are ignored, as the protocol requires
+            return None
         key, src_hash, n = struct.unpack_from("<IQH", msg, 1)
         return key, src_hash, msg[15:15 + n].decode("utf-8", "replace")
 
@@ -199,7 +174,6 @@ BELOW_NORMAL_PRIORITY_CLASS = 0x4000
 
 
 def lower_priority() -> None:
-    """Run below normal priority (model threads included), so the game always gets the CPU first."""
     if os.name != "nt":
         return
     try:
@@ -217,8 +191,6 @@ def lower_priority() -> None:
 
 
 def model_threads(requested: int | None = None) -> int:
-    """CPU threads for the model: --threads if given (module.toml), otherwise a quarter of the
-    logical CPUs, at most 2 (the game needs the rest)."""
     cpus = os.cpu_count() or 2
     if requested and requested > 0:
         return min(requested, cpus)
@@ -226,8 +198,6 @@ def model_threads(requested: int | None = None) -> int:
 
 
 class StderrHandler(logging.Handler):
-    """Nexus log lines: 'e: ', 'w: ', 'i: ', 'd: ' prefixes, '\\0' instead of newlines."""
-
     LETTERS = {logging.ERROR: "e", logging.WARNING: "w", logging.INFO: "i", logging.DEBUG: "d"}
 
     def __init__(self, stream) -> None:
@@ -240,31 +210,50 @@ class StderrHandler(logging.Handler):
             msg = self.format(record).replace("\r", "").replace("\n", "\0")
             self.stream.write(f"{letter}: {msg}\n".encode("utf-8", "replace"))
             self.stream.flush()
-        except Exception:  # noqa: BLE001 - never let logging kill the module
+        except Exception:  # noqa: BLE001
             pass
 
 
 # --------------------------------------------------------------------------- #
-# Glossary cleanup on the addon's cache.db (the patch itself: patch_db.CachePatch)
+# Glossary cleanup on the addon's cache.db
 # --------------------------------------------------------------------------- #
 class ModuleEngine(lt.Engine):
-    """lt_server.Engine whose glossary cleanup works on cache.db (rows found by their translated text)."""
-
     def _purge_addon_db(self, texts: set[str]) -> None:
-        db = self.addon_db
         texts = {t for t in texts if len(t.strip()) >= 3}
-        if not texts or not has_table(db):
+        if not texts:
+            return
+
+        def find(con: sqlite3.Connection) -> set[int]:
+            doomed: set[int] = set()
+            for t in texts:
+                doomed.update(k for (k,) in con.execute(
+                    "SELECT id FROM translations WHERE cache_key = ? AND instr(text, ?) > 0",
+                    (CACHE_KEY, t)))
+            return doomed
+
+        self._forget(find, "glossary changed")
+
+    def _purge_addon_lines(self, lines: set[str]) -> None:
+        if not lines:
+            return
+
+        def find(con: sqlite3.Connection) -> set[int]:
+            return {k for k, text in con.execute(
+                        "SELECT id, text FROM translations WHERE cache_key = ?", (CACHE_KEY,))
+                    if any(line in lines for line in untagged(k, text).split("\n"))}
+
+        self._forget(find, "left in English or with invented text, translated again")
+
+    def _forget(self, find, why: str) -> None:
+        db = self.addon_db
+        if not has_table(db):
             return
         try:
             con = sqlite3.connect(str(db), timeout=10)
             try:
                 with con:
-                    doomed: set[int] = set()
-                    for t in texts:
-                        doomed.update(k for (k,) in con.execute(
-                            "SELECT id FROM translations WHERE cache_key = ? AND instr(text, ?) > 0",
-                            (CACHE_KEY, t)))
-                    if self.patch:  # reviewed rows, and automatic ones made with this glossary
+                    doomed = find(con)
+                    if self.patch:
                         doomed -= self.patch.protected(doomed)
                     if self.patch:
                         self.patch.suppress(doomed)
@@ -272,8 +261,8 @@ class ModuleEngine(lt.Engine):
                                     [(CACHE_KEY, k) for k in doomed])
             finally:
                 con.close()
-            log.info("cache.db: %d old translations removed (glossary changed; "
-                     "asked again at next game start)", len(doomed))
+            log.info("cache.db: %d old translations removed (%s; asked again at next game start)",
+                     len(doomed), why)
         except Exception as exc:  # noqa: BLE001
             log.warning("cannot clean %s: %s", db, exc)
 
@@ -282,13 +271,9 @@ class ModuleEngine(lt.Engine):
 # Requests
 # --------------------------------------------------------------------------- #
 class IdCheck:
-    """Checks that the string IDs Text Translator sends are the ones the patch was built with,
-    by comparing the English text it sends with the map (e.g. after an update of the addon).
-    If too many differ, the patch is no longer used (it would show the wrong texts)."""
-
     def __init__(self, keymap: lt.KeyMap | None, on_fail=None, on_pass=None) -> None:
         self.keymap = keymap
-        self.on_fail, self.on_pass = on_fail, on_pass  # run in a thread (they use cache.db)
+        self.on_fail, self.on_pass = on_fail, on_pass
         self.match = self.mismatch = 0
         self.failed = False
         self.reported = False
@@ -323,18 +308,6 @@ class IdCheck:
 
 
 class Stats:
-    """Counters for the periodic "stats" log line, to see where time goes while playing:
-
-    requests  texts received, by how they were answered: patch, cache (already translated, glossary
-              or nothing to translate), model (had to wait for the translation), empty (no text)
-    wait      seconds from arrival to answer of the "model" requests: average, 95th percentile, max
-    queue     longest queue of lines waiting for the model
-    live      patch texts sent without a request (new patch, glossary or start)
-    model     lines translated, how long the worker was busy (glossary protection + model)
-    cpu       CPU used by the whole module (all threads), in % of one core: 100% = one core busy
-    The line is written only if something happened (requests, translations or CPU >= 1%).
-    """
-
     def __init__(self, engine: ModuleEngine, every: float = STATS_EVERY) -> None:
         self.engine = engine
         self.every = every
@@ -342,11 +315,11 @@ class Stats:
         self.cpu_since = time.process_time()
         self.base = self._totals()
         self.counts = {"patch": 0, "cache": 0, "model": 0, "empty": 0}
-        self.stale = 0  # patch entries not used because their English text changed
+        self.stale = 0
         self.waits: list[float] = []
         self.queue_max = 0
-        self.sends = 0  # groups of answers sent to the addon (each one can cause an addon refresh)
-        self.live = 0   # patch texts sent without a request
+        self.sends = 0
+        self.live = 0
 
     def _totals(self) -> tuple[int, float, float, int]:
         e = self.engine
@@ -356,11 +329,10 @@ class Stats:
         return time.monotonic() - self.since >= self.every
 
     def report(self, waiting: dict[int, float]) -> str | None:
-        """Text of the stats line for the period just ended (None if nothing happened), then reset."""
         now = time.monotonic()
         cpu_now = time.process_time()
         elapsed = max(now - self.since, 1e-6)
-        cpu = (cpu_now - self.cpu_since) * 100 / elapsed  # % of one core
+        cpu = (cpu_now - self.cpu_since) * 100 / elapsed
         period = f"{elapsed / 60:.0f} min" if elapsed >= 90 else f"{elapsed:.0f} s"
         done, prep, model, gave_up = (a - b for a, b in zip(self._totals(), self.base))
         total = sum(self.counts.values())
@@ -399,32 +371,24 @@ class Stats:
 
 
 class Dispatcher:
-    """Receives texts, answers at once when possible (patch, glossary, cache) and otherwise
-    waits for the translation worker. Each answer is also saved in the map (key, en, it).
-
-    Requests waiting for the model are indexed by line, so when a batch is finished only the
-    requests waiting for those lines are checked (before, every waiting request was checked
-    again at every wake-up, holding the lock the worker needs: 66 ms with 5,000 requests)."""
-
     def __init__(self, engine: ModuleEngine, patch: CachePatch, keymap: lt.KeyMap | None,
                  channel: Channel, stats_every: float = STATS_EVERY,
-                 cache_db: Path | None = None, translate_chat: bool = False) -> None:
+                 cache_db: Path | None = None) -> None:
         self.engine, self.patch, self.keymap, self.channel = engine, patch, keymap, channel
-        self.translate_chat = translate_chat
-
         self.inbox: queue.SimpleQueue[tuple[int, int, str]] = queue.SimpleQueue()
-        self.pending: dict[int, tuple[str, int]] = {}  # key -> (English, hash), waiting for the model
-        self.missing: dict[int, set[str]] = {}   # key -> lines not translated yet
-        self.waiting: dict[str, set[int]] = {}   # line -> keys waiting for it
+        self.pending: dict[int, tuple[str, int]] = {}
+        self.missing: dict[int, set[str]] = {}
+        self.waiting: dict[str, set[int]] = {}
         self.ids = IdCheck(keymap, on_fail=lambda why: patch.withdraw(cache_db, why),
                            on_pass=lambda: patch.ids_ok(cache_db))
         self.answered = 0
-        self.show_keys = patch.show_keys         # answers start with "<key> - "
-        self.arrived: dict[int, float] = {}      # key -> when it started waiting for the model
-        self.suggested: set[int] = set()         # keys answered with a suggestion, not sent yet
+        self.show_keys = patch.show_keys
+        self.char_mode = patch.char_mode
+        self.arrived: dict[int, float] = {}
+        self.suggested: set[int] = set()
         self.stats = Stats(engine, stats_every)
         with engine.cv:
-            engine.finished = []  # the worker now lists the lines of every finished batch
+            engine.finished = []
 
     def submit(self, key: int, src_hash: int, text: str) -> None:
         self.inbox.put((key, src_hash, text))
@@ -432,12 +396,13 @@ class Dispatcher:
             self.engine.cv.notify_all()
 
     def _result(self, line: str) -> str:
-        fixed = self.engine.glossary.lookup(line)
+        fixed = self.engine.glossary.lookup(line, keep_items=self.engine.keep_items_english)
         return fixed if fixed is not None else self.engine.cache.get(line, line)
 
     def _ready(self, line: str) -> bool:
         e = self.engine
-        return (line in e.cache or line in e.given_up or e.glossary.lookup(line) is not None
+        return (line in e.cache or line in e.given_up
+                or e.glossary.lookup(line, keep_items=e.keep_items_english) is not None
                 or not lt.Engine._needs_translation(line))
 
     def _enqueue(self, line: str) -> None:
@@ -448,8 +413,6 @@ class Dispatcher:
 
     def _try(self, key: int, src_hash: int, text: str,
              out: list[tuple[int, int, str, str]]) -> bool:
-        """Answer the key if all its lines are ready; otherwise register the missing lines and
-        queue them. Called with engine.cv held. Returns True if lines were queued."""
         lines = text.split("\n")
         missing = {line for line in lines if not self._ready(line)}
         if not missing:
@@ -472,7 +435,6 @@ class Dispatcher:
         return True
 
     def _forget(self, key: int) -> None:
-        """The addon sent a key that is already waiting: drop the old registration."""
         self.arrived.pop(key, None)
         if self.pending.pop(key, None) is None:
             return
@@ -491,7 +453,7 @@ class Dispatcher:
                 if self.inbox.empty() and not e.finished:
                     e.cv.wait(0.5)
                 queued = False
-                while True:  # new requests
+                while True:
                     try:
                         key, src_hash, text = self.inbox.get_nowait()
                     except queue.Empty:
@@ -502,21 +464,16 @@ class Dispatcher:
                         self.stats.counts["empty"] += 1
                         out.append((key, src_hash, text, text))
                         continue
-                    if not self.translate_chat and is_chat_or_player_message(text):
-                        self.stats.counts["empty"] += 1
-                        out.append((key, src_hash, text, text))
-                        continue
-
                     off = self.ids.failed or self.patch.ids_failed()
                     s = None if off else self.patch.valid_suggestion(
                         key, lt.hash_int(f"{src_hash:016x}"))
-                    if s is not None:  # a contributor's suggestion (not saved in the map)
+                    if s is not None:
                         self.stats.counts["patch"] += 1
                         self.suggested.add(key)
                         out.append((key, src_hash, text, s.suggestion))
                         continue
                     fixed, stale = (None, False) if off else self.patch.lookup(key, src_hash)
-                    if stale:  # English changed after the translation: translated locally
+                    if stale:
                         self.stats.stale += 1
                     if fixed is not None:
                         self.stats.counts["patch"] += 1
@@ -524,13 +481,13 @@ class Dispatcher:
                         continue
                     queued = self._try(key, src_hash, text, out) or queued
                 done, e.finished = e.finished, []
-                for line in done:  # finished batches: only the keys waiting for those lines
+                for line in done:
                     for key in self.waiting.pop(line, ()):
                         left = self.missing.get(key)
                         if left is None:
                             continue
                         left.discard(line)
-                        if not left:  # check all its lines again (one may have left the cache)
+                        if not left:
                             queued = self._try(key, self.pending[key][1], self.pending[key][0],
                                                out) or queued
                 if queued:
@@ -543,14 +500,10 @@ class Dispatcher:
                 self._send(out)
 
     def push(self, rows: list[tuple[int, int, str]]) -> int:
-        """Send patch texts the addon did not ask for: (key, u64 hash, text as cache.db shows it).
-        The addon shows them at once and saves them in cache.db. A key still waiting for the model
-        is answered by this text: its request is dropped, so the model answer does not replace it.
-        Returns the texts sent."""
         msgs = []
         for key, h, text in rows:
             try:
-                msgs.append(Channel.text(key, h, text))
+                msgs.append(Channel.text(key, h, lt.fix_turkish_chars(text, self.char_mode)))
             except ValueError:
                 log.warning("patch text of key %d too long: not sent", key)
         if not msgs:
@@ -564,10 +517,11 @@ class Dispatcher:
 
     def _send(self, out: list[tuple[int, int, str, str]]) -> None:
         msgs = []
-        for key, h, en, it in out:
+        for key, h, en, tr_text in out:
+            display_tr = shown_text(key, tr_text, self.show_keys, self.char_mode)
             try:
-                msgs.append(Channel.text(key, h, key_tag(key, it, self.show_keys) + it))
-            except ValueError:  # translation longer than the game allows: keep the original
+                msgs.append(Channel.text(key, h, display_tr))
+            except ValueError:
                 msgs.append(Channel.text(key, h, key_tag(key, en, self.show_keys) + en))
         self.channel.send(msgs)
         self.stats.sends += 1
@@ -578,27 +532,38 @@ class Dispatcher:
                      self.answered, len(self.pending), len(self.engine.queue))
         if self.keymap and not self.ids.failed:
             try:
-                # answers from a suggestion stay out of the map: its texts keep the translation of
-                # the patch or of the model, the one undoing the suggestion goes back to
-                self.keymap.save([(k, en, it, "live") for k, _h, en, it in out
-                                   if en.strip() and en != it and k not in self.suggested])
-                self.keymap.learn_english([(k, en) for k, _h, en, _it in out if k in self.suggested])
+                # map_tr.db always stores authentic Turkish (tr_text) so switching Font Injector ON
+                # can restore full Turkish characters without re-translating!
+                self.keymap.save(map_rows(out, self.suggested))
+                self.keymap.learn_english([(k, en) for k, _h, en, _tr in out if k in self.suggested])
             except Exception as exc:  # noqa: BLE001
                 log.debug("map save failed: %s", exc)
-        self.suggested.difference_update(k for k, _h, _en, _it in out)
+        self.suggested.difference_update(k for k, _h, _en, _tr in out)
 
 
-def cache_db_watcher(patch: CachePatch, cache_db: Path) -> None:
-    """Apply the patch to cache.db as soon as the addon has created it, or has moved an older one
-    to its current layout (once per start), after adding or removing the key prefixes of the
-    "show keys" mode."""
-    for _ in range(720):  # up to one hour
+def map_rows(out: list[tuple[int, int, str, str]], suggested: set[int]
+             ) -> list[tuple[int, str, str | None, str]]:
+    rows: list[tuple[int, str, str | None, str]] = []
+    for k, _h, en, tr_text in out:
+        if k in suggested or not en.strip():
+            continue
+        if en != tr_text:
+            rows.append((k, en, tr_text, "live"))
+        elif lt.Engine._needs_translation(en):
+            rows.append((k, en, None, "live"))
+    return rows
+
+
+def cache_db_watcher(patch: CachePatch, cache_db: Path, map_db: Path | None = None) -> None:
+    """Addon cache.db'yi oluşturur oluşturmaz yama, show_keys ve char_mode (Font Injector)
+    senkronizasyonunu uygular."""
+    for _ in range(720):
         try:
             if has_table(cache_db, need_hash=True):
-                n = sync_key_tags(cache_db, CACHE_KEY, patch.show_keys)
+                n = sync_key_tags(cache_db, CACHE_KEY, patch.show_keys, patch.char_mode, map_db=map_db)
                 if n:
-                    log.info("cache.db: key prefixes set to mode %s on %d texts (visible at next "
-                             "game start)", patch.show_keys or "off", n)
+                    log.info("cache.db: %d metin guncellendi (show_keys=%s, char_mode=%s)",
+                             n, patch.show_keys or "off", patch.char_mode)
                 patch.apply(cache_db)
                 return
         except Exception as exc:  # noqa: BLE001
@@ -607,77 +572,48 @@ def cache_db_watcher(patch: CachePatch, cache_db: Path) -> None:
         time.sleep(5)
 
 
-# --------------------------------------------------------------------------- #
 def module_language(module_dir: Path, requested: str | None) -> str | None:
-    """Language code: --lang (module.toml), otherwise the folder name local_translator_<code>.
-    None if unknown. Started from the sources (developers, not the exe): Italian."""
-    if requested:
-        return requested.lower() if requested.lower() in lt.LANGUAGES else None
-    m = re.fullmatch(r"local_translator_(\w+)", module_dir.name, re.IGNORECASE)
-    if m:
-        return m.group(1).lower() if m.group(1).lower() in lt.LANGUAGES else None
-    return None if getattr(sys, "frozen", False) else "it"
+    """Bu derleme yalnızca Türkçe ('tr') dilini destekler."""
+    if requested and requested.lower() not in lt.LANGUAGES:
+        return None
+    return "tr"
 
 
 def main() -> int:
-    module_dir = lt.app_dir()  # ...\addons\text_translator\modules\<folder>
+    module_dir = lt.app_dir()
     ap = argparse.ArgumentParser()
-    ap.add_argument("--lang", help="language code (lt_server.LANGUAGES); default: from the folder "
-                                   "name local_translator_<code>")
-    ap.add_argument("--fake", action="store_true", help="answer '[IT] text', no model (test)")
-    ap.add_argument("--lang-dir", type=Path, default=None, help="data folder (default IT\\, PT_BR\\...)")
+    ap.add_argument("--lang", default="tr", help="Dil kodu (yalnızca tr)")
+    ap.add_argument("--fake", action="store_true", help="Test modu: '[TR] text'")
+    ap.add_argument("--lang-dir", type=Path, default=None, help="Veri klasörü (varsayılan TR\\)")
     ap.add_argument("--cache-db", type=Path, default=module_dir / "cache.db")
-    ap.add_argument("--patch-file", type=Path, default=None, help="local patch (developers)")
+    ap.add_argument("--patch-file", type=Path, default=None, help="Yerel yama dosyası")
     ap.add_argument("--no-update", action="store_true")
-    ap.add_argument("--branch", default=lt.DEFAULT_BRANCH,
-                    help="GitHub branch for glossary and patch (developers' tests; default main)")
+    ap.add_argument("--branch", default=lt.DEFAULT_BRANCH)
     ap.add_argument("--debug", action="store_true")
-    ap.add_argument("--editor-port", type=int, default=editor.EDITOR_PORT, metavar="PORT",
-                    help="port of the correction page on 127.0.0.1, contributors only (0 = off)")
-    ap.add_argument("--threads", type=int, default=None,
-                    help="CPU threads for the model (default: a quarter of the CPUs, at most 2)")
-    ap.add_argument("--stats-every", type=int, default=STATS_EVERY, metavar="SECONDS",
-                    help=f"seconds between two 'stats' lines in the log (default {STATS_EVERY}, min 10)")
-    ap.add_argument("--export-review", type=Path, metavar="CSV",
-                    help="developers: write the ID/English/translation map of this module to a CSV, then exit")
-    ap.add_argument("--import-review", type=Path, metavar="CSV",
-                    help="developers: merge the 'nuova_traduzione' column of a reviewed CSV into "
-                         "--patch-file, then exit")
-    ap.add_argument("--show-keys", choices=(*SHOW_MODES, "off"),
-                    help=f"developers (game closed): 'show keys' mode: text (only real texts), "
-                         f"all (templates too) or off ({SHOW_KEYS_FILE} in --lang-dir + prefixes "
-                         f"in --cache-db), then exit")
-    ap.add_argument("--char-mode", choices=["smart", "full", "minimal", "off"], default="smart",
-                    help="Turkish character normalization mode: smart (default, fixes dropped ş/ğ/İ while keeping ç/ö/ü/ı), minimal, full, off")
-    ap.add_argument("--backend", choices=["google", "deepl", "gemini", "openai", "local"], default=None,
-                    help="Translation backend: google, deepl, gemini, openai, local")
-    ap.add_argument("--translate-chat", action="store_true", default=None,
-                    help="translate player and chat channel messages (default: False)")
-
-    # Unknown arguments (e.g. a newer module.toml with an older exe) must not stop the module:
-    # argparse would exit before the log exists, and the game would stay untranslated.
+    ap.add_argument("--editor-port", type=int, default=editor.EDITOR_PORT, metavar="PORT")
+    ap.add_argument("--threads", type=int, default=None)
+    ap.add_argument("--stats-every", type=int, default=STATS_EVERY, metavar="SECONDS")
+    ap.add_argument("--upload", action="store_true")
+    ap.add_argument("--upload-url", default=map_upload.UPLOAD_URL, help=argparse.SUPPRESS)
+    ap.add_argument("--upload-first", type=float, default=map_upload.FIRST_DELAY, help=argparse.SUPPRESS)
+    ap.add_argument("--export-review", type=Path, metavar="CSV")
+    ap.add_argument("--import-review", type=Path, metavar="CSV")
+    ap.add_argument("--show-keys", choices=(*SHOW_MODES, "off"))
     args, unknown = ap.parse_known_args()
-    Channel.CHAR_MODE = args.char_mode
 
     code = module_language(module_dir, args.lang)
     if code is None:
-        # no handshake: Text Translator shows the module as failed, instead of a wrong language
         (module_dir / "local_translator.log").write_text(
-            f"Local Translator v{VERSION}: unknown language (--lang {args.lang!r}, folder "
-            f"{module_dir.name!r}); known: {', '.join(lt.LANGUAGES)}\n", encoding="utf-8")
+            f"Local Translator TR v{VERSION}: yalnızca Türkçe (tr) desteklenmektedir (--lang {args.lang!r})\n",
+            encoding="utf-8")
         return 3
     global CACHE_KEY
-    lang = lt.set_language(code)
+    lang = lt.set_language("tr")
     CACHE_KEY = lang.cache_key
     if args.lang_dir is None:
         args.lang_dir = module_dir / lang.data_dir
 
-    cfg = lt.get_config(module_dir, args.lang_dir)
-    backend = args.backend or cfg.get("backend") or ("google" if code == "tr" else "local")
-    if "char_mode" in cfg and "--char-mode" not in sys.argv:
-        Channel.CHAR_MODE = cfg["char_mode"]
-
-    if args.export_review:  # developer commands, not started by the addon
+    if args.export_review:
         n = lt.export_review(args.lang_dir / lang.file("map", ".db"),
                              args.patch_file or args.lang_dir / lang.file("patch", ".json"),
                              args.export_review)
@@ -685,7 +621,7 @@ def main() -> int:
         return 0
     if args.import_review:
         if not args.patch_file:
-            print(f"--import-review needs --patch-file (the repository's patch\\{lang.file('patch', '.json')})")
+            print(f"--import-review needs --patch-file (patch\\{lang.file('patch', '.json')})")
             return 1
         changed, removed = lt.import_review(args.import_review, args.patch_file)
         print(f"patch {args.patch_file}: {changed} added/changed, {removed} removed")
@@ -694,13 +630,13 @@ def main() -> int:
         flag = args.lang_dir / SHOW_KEYS_FILE
         mode = None if args.show_keys == "off" else args.show_keys
         if mode:
-            flag.write_text(f"{mode}\n\nLocal Translator: the texts in the game start with their "
-                            "string ID.\n'text' = only real texts; 'all' = templates too.\n"
-                            "Delete this file to turn it off (visible after two game starts).\n",
+            flag.write_text(f"{mode}\n\nLocal Translator TR: metinler String ID ile başlar.\n",
                             encoding="utf-8")
         else:
             flag.unlink(missing_ok=True)
-        n = sync_key_tags(args.cache_db, CACHE_KEY, mode)
+        cfg = load_tr_config(args.lang_dir, module_dir)
+        map_db = args.lang_dir / lang.file("map", ".db")
+        n = sync_key_tags(args.cache_db, CACHE_KEY, mode, cfg["char_mode"], map_db=map_db)
         print(f"show keys {args.show_keys}: {n} texts changed in {args.cache_db}")
         return 0
 
@@ -708,8 +644,8 @@ def main() -> int:
     if rx is None or tx is None:
         return 2
     channel = Channel(rx, tx)
-    channel.handshake()  # first thing: the game waits for it
-    sys.stdout = open(os.devnull, "w")  # nothing else may ever reach the real stdout
+    channel.handshake()
+    sys.stdout = open(os.devnull, "w")
 
     args.lang_dir.mkdir(parents=True, exist_ok=True)
     handlers: list[logging.Handler] = [RotatingFileHandler(
@@ -722,16 +658,17 @@ def main() -> int:
         h.setFormatter(logging.Formatter("%(message)s"))
         handlers.append(h)
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO, handlers=handlers)
-    log.info("Local Translator %s v%s started (protocol %d, result version %d, cache key %s)",
-             lang.label, VERSION, PROTOCOL, RESULT_VERSION, CACHE_KEY)
+
+    cfg = load_tr_config(args.lang_dir, module_dir)
+    log.info("Local Translator %s v%s started (protocol %d, cache_key=%s, backend=%s, char_mode=%s, keep_items=%s)",
+             lang.label, VERSION, PROTOCOL, CACHE_KEY, cfg["backend"], cfg["char_mode"], cfg["keep_items_english"])
     lower_priority()
     if unknown:
         log.warning("ignored unknown arguments: %s", " ".join(unknown))
 
-    # Requests are read and buffered from the very start, while the rest gets ready.
     early: list[tuple[int, int, str]] = []
     holder: dict[str, Dispatcher] = {}
-    maps: list[lt.KeyMap] = []  # closed by the reader on exit
+    maps: list[lt.KeyMap] = []
     ready = threading.Event()
 
     def reader() -> None:
@@ -750,7 +687,7 @@ def main() -> int:
         except Exception:  # noqa: BLE001
             log.exception("stdin reader failed")
         log.info("addon closed the connection: exiting")
-        for m in maps:  # merge map_it.db-wal into map_it.db before exiting
+        for m in maps:
             try:
                 m.close()
             except Exception as exc:  # noqa: BLE001
@@ -767,38 +704,35 @@ def main() -> int:
     elif glossary.load_file(lt.bundled_dir() / lang.file("glossary", ".default.json")):
         where = "built-in default"
     else:
-        where = "none yet: downloaded from GitHub"
-    # the glossary has no version number: its fingerprint identifies the content
+        where = "none yet"
     log.info("glossary %s (%s): %d exact, %d terms, %d patterns", glossary.fingerprint or "-", where,
              len(glossary.exact), len(glossary.terms), len(glossary.patterns))
     fake = args.fake or (args.lang_dir / "fake.txt").is_file()
     t0 = time.perf_counter()
     patch = CachePatch(args.lang_dir / lang.file("patch", ".db"), CACHE_KEY, RESULT_VERSION)
-    patch.glossary = glossary  # to know whether 'auto' was made with this glossary
+    patch.glossary = glossary
+    patch.char_mode = cfg["char_mode"]
     contrib = editor.contributor(args.lang_dir)
     if contrib and contrib.show_keys is not editor.NOT_SET:
         patch.show_keys, where = contrib.show_keys, editor.CONTRIBUTOR_FILE
     else:
         patch.show_keys, where = show_keys_mode(args.lang_dir), SHOW_KEYS_FILE
     if patch.show_keys:
-        log.info("SHOW KEYS mode '%s' (%s): texts start with their string ID", patch.show_keys,
-                 where)
+        log.info("SHOW KEYS mode '%s' (%s): texts start with their string ID", patch.show_keys, where)
     try:
-        patch.migrate(args.lang_dir)  # v0.4 files, or IT\\patch_it.json copied by option 7
-    except Exception:  # noqa: BLE001 - the archive is still usable
+        patch.migrate(args.lang_dir)
+    except Exception:  # noqa: BLE001
         log.exception("cannot import the local patch files")
-    if args.patch_file:  # developers: test patch, no updates from GitHub in this session
+    if args.patch_file:
         if patch.import_file(args.patch_file, "patch-file"):
             log.info("test patch loaded: %s", args.patch_file)
     c = patch.counts()
-    log.info("patch v%d: %d reviewed, %d automatic, %d drop, %d with the hash of the English; "
-             "made with glossary %s (%s) (ready in %.2f s)", patch.version, c["reviewed"],
-             c["auto"], c["drop"], c["hash"], patch.glossary_fp or "-",
-             "same as yours" if patch.auto_current() else "different from yours",
-             time.perf_counter() - t0)
+    log.info("patch v%d: %d reviewed, %d automatic, %d drop (ready in %.2f s)",
+             patch.version, c["reviewed"], c["auto"], c["drop"], time.perf_counter() - t0)
+
     engine = ModuleEngine(lt.FakeTranslator() if fake else None, glossary,
-                          args.lang_dir / lang.file("cache", ".jsonl"), args.cache_db, patch=patch)
-    engine.char_mode = Channel.CHAR_MODE
+                          args.lang_dir / lang.file("cache", ".jsonl"), args.cache_db,
+                          patch=patch, keep_items_english=bool(cfg.get("keep_items_english", True)))
     keymap = None
     try:
         keymap = lt.KeyMap(args.lang_dir / lang.file("map", ".db"))
@@ -807,14 +741,11 @@ def main() -> int:
     except Exception as exc:  # noqa: BLE001
         log.warning("map disabled: %s", exc)
 
-    translate_chat = args.translate_chat if args.translate_chat is not None else cfg.get("translate_chat", False)
-    log.info("translate chat messages: %s", "on" if translate_chat else "off (chat preserved as-is)")
     dispatcher = Dispatcher(engine, patch, keymap, channel, max(10, args.stats_every),
-                            args.cache_db, translate_chat=translate_chat)
-
+                            args.cache_db)
     holder["d"] = dispatcher
-    patch.sender = dispatcher.push  # patch texts the game must change are sent at once
-    if contrib and keymap:  # contributors: their suggestions count, and the correction page is on
+    patch.sender = dispatcher.push
+    if contrib and keymap:
         patch.map_path, patch.suggestion_of = keymap.path, keymap.suggestion
         log.info("contributor %s: suggestions on", contrib.author)
         if args.editor_port:
@@ -829,60 +760,55 @@ def main() -> int:
     if fake:
         log.info("TEST MODE: answering '[%s] text', no real translation", lang.label)
     else:
-        def load_model() -> None:
-            nonlocal backend
-            translator = None
-            if backend == "google":
-                log.info("using Google Translate backend (free web RPC)")
-                translator = lt.GoogleTranslator(target_lang=lang.code)
-            elif backend == "deepl":
-                api_key = cfg.get("deepl_api_key", "").strip()
-                if not api_key:
-                    log.warning("DeepL backend selected but deepl_api_key is empty in config.json; falling back to Google")
-                    translator = lt.GoogleTranslator(target_lang=lang.code)
+        def load_translator() -> None:
+            backend = str(cfg.get("backend", "offline")).lower()
+            api_key = str(cfg.get("api_key", "")).strip()
+            model_name = str(cfg.get("model_name", "")).strip()
+            try:
+                translator = None
+                if backend == "google":
+                    translator = lt.GoogleTranslator()
+                    log.info("cloud translator loaded: Google Translate")
+                elif backend == "deepl" and api_key:
+                    translator = lt.DeepLTranslator(api_key)
+                    log.info("cloud translator loaded: DeepL")
+                elif backend == "gemini" and api_key:
+                    translator = lt.GeminiTranslator(api_key, model_name or "gemini-2.5-flash")
+                    log.info("cloud translator loaded: Gemini (%s)", model_name or "gemini-2.5-flash")
+                elif backend == "openai" and api_key:
+                    translator = lt.OpenAITranslator(api_key, model_name or "gpt-4o-mini")
+                    log.info("cloud translator loaded: OpenAI (%s)", model_name or "gpt-4o-mini")
                 else:
-                    log.info("using DeepL API backend")
-                    translator = lt.DeepLTranslator(api_key=api_key, target_lang=lang.code)
-            elif backend == "gemini":
-                api_key = cfg.get("gemini_api_key", "").strip()
-                if not api_key:
-                    log.warning("Gemini backend selected but gemini_api_key is empty in config.json; falling back to Google")
-                    translator = lt.GoogleTranslator(target_lang=lang.code)
-                else:
-                    log.info("using Gemini API backend")
-                    translator = lt.GeminiTranslator(api_key=api_key)
-            elif backend == "openai":
-                api_key = cfg.get("openai_api_key", "").strip()
-                if not api_key:
-                    log.warning("OpenAI backend selected but openai_api_key is empty in config.json; falling back to Google")
-                    translator = lt.GoogleTranslator(target_lang=lang.code)
-                else:
-                    model_name = cfg.get("openai_model", "gpt-4o-mini").strip()
-                    log.info("using OpenAI API backend (model %s)", model_name)
-                    translator = lt.OpenAITranslator(api_key=api_key, model=model_name)
-            else:  # "local"
-                model = args.lang_dir / "model"
-                try:
+                    if backend != "offline":
+                        log.warning("backend '%s' requires an API key; falling back to offline OPUS-MT", backend)
+                    model = args.lang_dir / "model"
                     lt.ensure_model(model, args.lang_dir, lt.MODEL_URL)
-                    req_threads = args.threads if args.threads is not None else cfg.get("threads")
+                    req_threads = args.threads or int(cfg.get("threads") or 0) or None
                     threads = model_threads(req_threads)
                     translator = lt.CT2Translator(model, threads=threads)
-                    log.info("local model loaded (%d threads)", threads)
-                except Exception:
-                    log.exception("could not prepare local model in %s, falling back to Google", model)
-                    translator = lt.GoogleTranslator(target_lang=lang.code)
+                    log.info("offline OPUS-MT model loaded (%d threads)", threads)
+                with engine.cv:
+                    engine.translator = translator
+                    engine.cv.notify_all()
+            except Exception:  # noqa: BLE001
+                log.exception("could not prepare the translation engine (%s)", backend)
+        threading.Thread(target=load_translator, daemon=True, name="model-loader").start()
 
-            with engine.cv:
-                engine.translator = translator
-                engine.cv.notify_all()
-        threading.Thread(target=load_model, daemon=True, name="model-loader").start()
-
-    threading.Thread(target=cache_db_watcher, args=(patch, args.cache_db), daemon=True,
-                     name="cache-db").start()
+    threading.Thread(target=cache_db_watcher,
+                     args=(patch, args.cache_db, keymap.path if keymap else None),
+                     daemon=True, name="cache-db").start()
+    if args.upload:
+        if keymap is None:
+            log.warning("map upload: no map, nothing to send")
+        else:
+            try:
+                map_upload.MapUploader(keymap.path, args.lang_dir, lang.code, VERSION, args.upload_url,
+                                       max(0.0, args.upload_first)).start()
+            except ValueError as exc:
+                log.warning("map upload off: %s", exc)
     if not args.no_update:
         def glossary_changed() -> None:
             engine.sync_glossary()
-            # automatic rows blocked until now may be valid with the new glossary
             try:
                 if has_table(args.cache_db):
                     patch.apply(args.cache_db)
@@ -894,9 +820,10 @@ def main() -> int:
         if not args.patch_file:
             PieceUpdater(patch, lang.code, args.cache_db, args.branch).start()
 
-    while True:  # everything runs in threads; the reader exits the process when stdin closes
+    while True:
         time.sleep(3600)
 
 
 if __name__ == "__main__":
     sys.exit(main())
+

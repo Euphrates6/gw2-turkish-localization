@@ -2,190 +2,170 @@
   <a href="README.md">Türkçe</a> • <b>English</b>
 </p>
 
-# Guild Wars 2 Turkish Localization, Font Engine & Universal Addon Loader
+# Guild Wars 2 — Turkish Localization & Mod Installation Hub (GW2-TR)
+### Guild Wars 2 Turkish Localization, Neural Translation Engine & Mod Installation Hub
 
 [![Guild Wars 2](https://img.shields.io/badge/Game-Guild%20Wars%202-red.svg)](https://www.guildwars2.com/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20(64--bit)-blue.svg)]()
 [![Storefront](https://img.shields.io/badge/Storefront-Epic%20Games%20%7C%20Steam%20%7C%20Standalone-purple.svg)]()
-[![Framework](https://img.shields.io/badge/Framework-Raidcore%20Nexus-orange.svg)](https://raidcore.gg/Nexus)
-[![Release](https://img.shields.io/badge/Release-v0.11.0--TR-brightgreen.svg)](../../releases/latest)
+[![Nexus](https://img.shields.io/badge/Framework-Raidcore%20Nexus-orange.svg)](https://raidcore.gg/Nexus)
+[![Release](https://img.shields.io/badge/Release-v0.12.0-brightgreen.svg)](../../releases/latest)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A comprehensive **Turkish localization suite, featuring two separate standalone 1-click installers (Offline & Online), an in-memory font injector**, and an **Epic Games Store / Steam / Standalone compatible universal bridge loader** designed for Guild Wars 2.
+A complete Turkish localization ecosystem for Guild Wars 2, featuring a **one-click IDE-themed desktop Mod Installation Hub (`GW2_TR_Hub.exe`)**, **in-memory RAM-hook Turkish font & glyph injector**, **offline neural machine translation engine with item/stat/location protection**, and **live translation editor**.
 
-It injects Turkish character glyph support into the game's native fonts with smart glyph handling, preventing missing character bugs while providing real-time in-game translation for dialogues, quests, UI, and story text.
+Fully compatible with Steam, Epic Games Store, and the standalone ArenaNet client.
 
 ---
 
-## 🚀 Two Separate Editions / İki Ayrı Kurulum Seçeneği
+## 🌟 Key Features
 
-This project is partitioned into **two distinct standalone packages** to cater to different hardware and internet requirements:
+### 1. 🎛️ IDE-Themed Mod Installation Hub (`GW2_TR_Hub.exe`)
+* **1-Click Auto-Detection & Installation:** Automatically locates your Guild Wars 2 directory (Steam, Epic Games, Registry) and installs Raidcore Nexus (`d3d11.dll`), the Text Translator addon, Turkish font injector, and offline translation models with one click.
+* **Modern Dark IDE Aesthetics:** Monochromatic dark palette (`#181818`, `#1e1e1e`, `#252526`), Phosphor icon set, and embedded offline Tailwind CSS engine.
+* **Interactive Drawer UX:** Click anywhere on mod rows to expand detailed configuration drawers (in-game keybind recorder, engine selector, glyph mode).
+* **Built-In About & Community Panel:** Direct access to version information, GitHub repository, and Discord developer contact.
 
-| Feature | 🖥️ Offline Edition (Çevrimdışı Sürüm) | ☁️ Online Light Edition (Çevrimiçi Sürüm) |
+### 2. 🔤 Advanced In-Memory Turkish Font Injector (`turkish_font.dll` & `version.dll`)
+* **Zero Modification to Game Data:** Leaves `Gw2.dat` untouched. Hooks the RAM `FileArchive::ReadFile` function to blend 53 RLE-compressed Range-2 Turkish font atlases into the game's native fonts.
+* **Dual Character Modes:**
+  * **ON (Full Glyph Mode):** All 12 Turkish characters (`Ş, ş, Ğ, ğ, İ, ı, Ç, ç, Ö, ö, Ü, ü`) render with authentic high-resolution glyphs.
+  * **OFF (Smart 6-Character Fallback):** Disables font injection and converts only the 6 Range-2 characters that produce box/tofu glyphs (`Ş->S, ş->s, Ğ->G, ğ->g, İ->I, ı->i`), while preserving natively supported `Ç, ç, Ö, ö, Ü, ü`.
+* **Automatic Cache Sync:** Toggling character modes automatically converts and restores all cached strings in `cache.db` within seconds.
+
+### 3. 🛡️ Comprehensive Item, Location, Stat, Set & Boon/Condition Protection
+Ensures seamless compatibility with the official Wiki, Trading Post, and international team chat via a 3-layer hybrid protection filter:
+* **Item Names:** Weapons, armor, materials, trophies remain in original English (e.g. *Berserker's Pearl Broadsword*).
+* **Locations & POIs:** Map names, regions, Waypoints, and Points of Interest remain in English (e.g. *Queensdale*, *Lion's Arch*).
+* **Attributes & Stats:** `Power`, `Precision`, `Toughness`, `Vitality`, `Ferocity`, `Condition Damage`, `Expertise`, `Concentration`, `Healing Power`, `Agony Resistance`, `Critical Chance`, `Critical Damage`, `Boon Duration`, `Armor`, `Health` and bonus lines (`+120 Power`, `+%num1% Condition Damage`) remain in original English.
+* **Stat Sets (Prefixes):** `Berserker's`, `Viper's`, `Marauder's`, `Celestial`, `Diviner's`, `Harrier's`, `Minstrel's`, etc.
+* **Boons & Conditions:** `Might`, `Fury`, `Quickness`, `Alacrity`, `Protection`, `Aegis`, `Bleeding`, `Burning`, `Torment`, `Vulnerability`, etc.
+* **Dialogues & UI:** Quest descriptions, story dialogues, UI buttons, and guide texts are translated into fluent Turkish.
+
+### 4. 🧠 Offline Neural Translation & Optional Cloud APIs
+* **Primary Offline Engine (OPUS-MT):** High-speed local CTranslate2 + SentencePiece model running on your CPU. Zero internet required, zero API costs, zero telemetry, zero latency!
+* **Optional Cloud Backends:** Optional integration with Google Translate (free), DeepL, Google Gemini, or OpenAI API keys configurable via the Hub.
+
+### 5. ⌨️ Instant In-Game Toggle Keybind (`ALT + T`)
+* Toggle translation on and off with a single keystroke while in-game. Custom keybinds can be recorded directly in the Hub and sync seamlessly with Nexus `InputBinds.json`.
+
+### 6. ✏️ Live & Offline Translation Editor
+* **Live Mode:** Access `http://127.0.0.1:8770` in your web browser while the game is running to edit translations on the fly.
+* **Offline Mode:** Search, edit, and undo translations in `cache.db`, `map_tr.db`, and `patch_tr.db` directly inside the Hub application even when the game is closed.
+
+---
+
+## 📥 Downloads
+
+Get the latest releases on the [GitHub Releases](../../releases/latest) page:
+
+| File | Size | Description |
 | :--- | :--- | :--- |
-| **Standalone Installer** | `GW2_Turkce_Yama_Cevrimdisi.exe` | `GW2_Turkce_Yama_Cevrimici.exe` |
-| **Manual Zip Bundle** | `Local_Translator_Cevrimdisi_TR.zip` (~112 MB) | `Local_Translator_Cevrimici_TR.zip` (~18 MB) |
-| **Engine** | **CTranslate2 + OPUS-MT** Local Neural Model | **Google Translate** (Free) / **DeepL** / **Gemini** / **GPT** |
-| **Internet Required** | ❌ **Zero Internet** (100% Offline) | ✔️ Requires active internet connection |
-| **Translation Latency** | ⚡ **0 ms** (Runs on local CPU) | ~100-300 ms (Web RPC / Cloud API) |
-| **API Key / Quota** | ❌ **None needed**, private & unlimited | None for Google; optional API key for AI |
-| **Model Included** | ✔️ Pre-packaged OPUS-MT model (Plug & Play) | Cloud-based |
-| **Thread Control** | ✔️ Configurable CPU cores (2, 4, 6, 8) | Minimal CPU footprint |
+| 🎛️ **[GW2_TR_Hub.exe](../../releases/latest)** | ~280 MB | **Recommended:** Desktop Mod Installation & Management Hub (1-Click Setup, Live Editor) |
+| 📦 **[GW2_TR_v0.12.0_Manuel_Paket.zip](../../releases/latest)** | ~298 MB | **Manual:** Standalone zip package for manual extraction into Guild Wars 2 root directory |
+| ⚙️ **[Local_Translator_TR.exe](../../releases/latest)** | ~227 MB | Standalone background translation engine |
 
 ---
 
-## 📥 Download
+## 🚀 Installation Guide
 
-Download the latest release binaries from GitHub Releases:
+### Method 1: GW2-TR Hub 1-Click Setup (Recommended)
+1. Download and run **[`GW2_TR_Hub.exe`](../../releases/latest)**.
+2. The Hub will automatically detect your Guild Wars 2 folder (or use *"Browse"* to select the folder containing `Gw2-64.exe`).
+3. Click **"INSTALL / UPDATE ALL COMPONENTS"**. Raidcore Nexus (`d3d11.dll`), Text Translator, Font Injector, and Offline Turkish models will be installed in seconds.
+4. Click **"Launch Guild Wars 2"** to start playing in Turkish!
 
-* 💻 **[Download GW2_Turkce_Yama_Cevrimdisi.exe (GitHub Releases)](../../releases/latest)** *(Offline 1-Click Installer)*
-  * Completely offline, powered by local CTranslate2 & OPUS-MT neural model.
-  * No internet, no quotas, zero lag.
-* 📦 **[Download Local_Translator_Cevrimdisi_TR.zip](../../releases/latest)** *(Offline Manual Package)*
-
-* ☁️ **[Download GW2_Turkce_Yama_Cevrimici.exe (GitHub Releases)](../../releases/latest)** *(Online Ultra-Light Installer)*
-  * Tiny package size (~18 MB).
-  * Powered by Google Translate (default, free, unlimited), DeepL, Google Gemini 1.5 Flash, or OpenAI GPT.
-* 📦 **[Download Local_Translator_Cevrimici_TR.zip](../../releases/latest)** *(Online Manual Package)*
-
----
-
-## Key Features
-
-### 1. Standalone 1-Click Installers & Control Panels
-* Zero addon management or zip extraction needed by players.
-* Automatically detects Steam, Epic Games Store, and ArenaNet Standalone game paths.
-* Dedicated configuration: CPU thread selection for Offline edition, multi-backend selector for Online edition.
-* 1-click launch game or clean uninstall to restore vanilla game.
-
-### 2. Custom Turkish Font & Smart Glyph Engine (`turkish_font.dll` & `version.dll`)
-* Analyzed `Gw2.dat` font atlases and rasterized extended Latin glyphs (Range 2: Latin Extended-A) using vector font rendering.
-* Hooks into the in-memory `FileArchive::ReadFile` routine to inject Turkish character glyphs at runtime without modifying game files on disk.
-* Due to limitations in certain in-game UI font tables, the translator employs an intelligent character fallback mode (`char_mode: smart`) to ensure clean text display and prevent character drop issues.
-
-### 3. Universal Bridge Loader (`version.dll`)
-* A lightweight, zero-dependency Rust DLL proxy that bypasses client restrictions where `d3d11.dll` is skipped (notably in **Epic Games Store** `-eglv2` and modern launchers).
-* Automatically invoked via `Gw2-64.exe` static import tables during startup; transparently chainloads **Raidcore Nexus**, the **Turkish Font Injector**, and the **Translation Server**.
-
-### 4. Safe & Zero Ban Risk
-* Zero physical modifications to `Gw2.dat` or game binaries.
-* Adheres strictly to ArenaNet third-party program policies via standard Windows DLL forwarding and the Raidcore Nexus ecosystem.
+### Method 2: Manual Installation (Zip)
+1. Download **[`GW2_TR_v0.12.0_Manuel_Paket.zip`](../../releases/latest)**.
+2. Extract all contents (`d3d11.dll`, `version.dll`, `addons/`) directly into your Guild Wars 2 installation directory (next to `Gw2-64.exe`).
+3. Launch the game normally.
 
 ---
 
-## Quick Installation
-
-### Method 1: 1-Click Installer (Recommended)
-1. Download your preferred edition installer (`GW2_Turkce_Yama_Cevrimdisi.exe` or `GW2_Turkce_Yama_Cevrimici.exe`).
-2. Run the executable. It will automatically detect your game directory. Click **"Türkçe Yamayı Kur"** (Install).
-3. Click **"Oyunu Başlat"** (Launch Game) and enjoy Guild Wars 2 in Turkish!
-
-### Method 2: Manual Installation
-1. Download `Local_Translator_Cevrimdisi_TR.zip` or `Local_Translator_Cevrimici_TR.zip` from [**Releases**](../../releases/latest).
-2. Extract all contents (`version.dll`, `d3d11.dll`, `addons/`, etc.) directly into your **Guild Wars 2 root directory** (where `Gw2-64.exe` is located).
-3. Launch the game normally via Epic Games Launcher, Steam, or the Standalone client.
-
-### Toggling Translation On/Off In-Game (Instant Toggle Keybind)
-To view original English item names, skill tooltips, or wiki terms without restarting the game, you can switch between Turkish and English with a single keypress:
-1. In-game, press **`Ctrl + O`** to open the Nexus overlay.
-2. Navigate to the **`Keybinds`** tab.
-3. Locate **`Toggle Show Translated`** under the **Text Translator** header.
-4. Click the input box and press your preferred shortcut key (e.g., **`Alt + T`**, **`F11`**, or **`Pause/Break`**).
-5. Now, pressing that key in-game instantly toggles translations in real-time.
-
----
-
-## Repository Architecture
+## 📁 Repository Structure
 
 ```
 gw2-turkish-localization/
-├── loader/                  # Zero-dependency Rust version.dll proxy bridge
-│   ├── Cargo.toml
-│   └── src/lib.rs
-├── font-addon/              # C++ in-memory AFNT font injector (turkish_font.dll)
-│   ├── main.cpp
-│   ├── Nexus.h
-│   └── resource.rc
-├── src/                     # Python translation server & multi-engine adapters
-│   ├── lt_server.py         # CTranslate2 / Google / DeepL / Gemini / OpenAI server
-│   ├── lt_module.py         # Nexus Text Translator IPC protocol handler
-│   └── patch_db.py          # SQLite cache & glossary manager
-├── glossary/                # GW2 game terminology & Turkish glossary
-│   └── glossary_tr.json
-├── TR/
-│   ├── config.json          # Default configuration template
-│   └── model/               # OPUS-MT Turkish neural model (Offline Edition)
-│       ├── model.bin
-│       ├── shared_vocabulary.json
-│       ├── source.spm
-│       ├── target.spm
-│       └── config.json
-├── installer/               # Modern PySide6 standalone installers & control panels
-│   ├── gw2_control_panel.py
-│   ├── GW2_Turkce_Yama_Cevrimdisi.spec
-│   └── GW2_Turkce_Yama_Cevrimici.spec
-├── assemble_release.py      # Dual-target staging script (offline & online)
-└── create_zip.py            # Dual-target zip packaging script
+├── assets/                  # Precompiled DLLs, addons, and desktop icons
+│   ├── turkish_font.dll     # C++ Range-2 AFNT font injector (53 embedded atlases)
+│   ├── version.dll          # Rust early-boot proxy loader
+│   ├── d3d11.dll            # Raidcore Nexus Addon Loader
+│   ├── text_translator.dll  # Text Translator Nexus addon
+│   ├── app_icon.ico         # Multi-size IDE hexagon Windows icon
+│   └── app_icon.png         # 1024x1024 transparent PNG logo
+├── hub/                     # Desktop Mod Installation Hub (pywebview)
+│   ├── app.py               # WebView2 & Nexus IPC bridge, keybind API
+│   └── ui/                  # Dark IDE-themed interface (#181818, #1e1e1e)
+│       ├── index.html       # 5-tab main UI (Mods, Editor, Downloads, Settings, About)
+│       ├── tailwind.js      # Embedded offline Tailwind engine
+│       ├── phosphor.css     # Embedded Phosphor icons CSS
+│       ├── Phosphor.woff2   # Embedded Phosphor webfont
+│       ├── app_icon.png     # Menu logo
+│       └── favicon.ico      # Tab icon
+├── src/                     # Python translation engine core
+│   ├── lt_server.py         # v0.12.0 Turkish-only engine (Stat/Item/Boon protection)
+│   ├── lt_module.py         # Text Translator IPC communication module
+│   ├── patch_db.py          # SQLite WAL cache and character mode synchronizer
+│   ├── editor.py            # Live and offline translation editor
+│   ├── map_upload.py        # Map data uploader
+│   ├── glossary_tr.default.json
+│   └── requirements.txt
+├── tools/                   # Maintenance and build utilities
+│   ├── make_icon.py         # Hexagon icon generator
+│   ├── update_glossary_mechanics.py # Stat & mechanics term updater
+│   └── assemble_manual_zip.py       # Standalone manual zip packager
+├── TR/                      # Turkish language models and configuration
+│   ├── config.json          # Default engine configuration
+│   ├── contributor.json     # Developer profile
+│   ├── glossary_tr.json     # 3,600+ terms, stats, sets, and boons glossary
+│   └── model/               # 35 MB CTranslate2 OPUS-MT local neural model
+├── build_all.py             # Single-command build script for all EXEs and DLLs
+├── test_gw2_tr.py           # 6/6 test suites (Font, Character, Stat, Cache, Keybind)
+└── test_protocol.py         # Nexus Text Translator binary IPC test protocol
 ```
 
 ---
 
-## Building from Source
+## 🛠️ Building from Source
 
-### 1. Translation Modules (Python / PyInstaller)
-```bash
-# Offline local edition (bundles CTranslate2):
-pyinstaller Local_Translator_TR.spec
+Requirements: Python 3.10+, Visual Studio C++ Build Tools (or MinGW `g++`), Rust `cargo`.
 
-# Online ultra-light edition:
-pyinstaller Local_Translator_TR_light.spec
-```
+```powershell
+# 1. Install dependencies:
+pip install -r src/requirements.txt pyinstaller pywebview Pillow
 
-### 2. Bridge Loader (Rust)
-```bash
-cd loader
-cargo build --release
-# Output: loader/target/release/version.dll
-```
+# 2. Run verification tests:
+python test_gw2_tr.py
+python test_protocol.py
 
-### 3. Font Addon (C++)
-```bash
-cd font-addon
-windres resource.rc -O coff -o resource.res
-g++ -O3 -shared main.cpp resource.res -o turkish_font.dll -lucrt -lkernel32
-```
+# 3. Build all binaries and packages:
+python build_all.py
+python tools/assemble_manual_zip.py
 
-### 4. Assembling Packages & Building Installers
-```bash
-# Stage both offline and online packages:
-python assemble_release.py --all
-
-# Create distributable zip archives:
-python create_zip.py
-
-# Build the standalone installer executables:
-pyinstaller --distpath dist installer/GW2_Turkce_Yama_Cevrimdisi.spec
-pyinstaller --distpath dist installer/GW2_Turkce_Yama_Cevrimici.spec
+# Artifacts are produced in dist/:
+# - dist/GW2_TR_Hub.exe
+# - dist/Local_Translator_TR.exe
+# - dist/GW2_TR_v0.12.0_Manuel_Paket.zip
 ```
 
 ---
 
-## Credits & Acknowledgments
+## 👥 Credits & Acknowledgments
 
-This project is built upon the invaluable contributions of the open-source and Guild Wars 2 modding communities:
+This project is built upon the invaluable contributions of the open-source community:
 
-* **[ideka](https://github.com/ideka)**: Original author of the [Text Translator](https://github.com/ideka/text-translator-public) Nexus addon and the [module protocol](https://github.com/ideka/modulep).
-* **[NikeGipple](https://github.com/NikeGipple)**: Creator of the [GW2 Local Translator](https://github.com/NikeGipple/gw2-nexus-local-translator) module project and base architecture.
-* **[nourlie](https://github.com/nourlie)**: Research on `Gw2.dat` AFNT font chunk structure, decompressor analysis, and memory injection patterns in [GlyphCore](https://github.com/nourlie/GlyphCore).
-* **[morluto](https://github.com/morluto)**: Reverse engineering tooling and research via [REA](https://github.com/morluto/rea).
-* **[Raidcore Team](https://raidcore.gg/Nexus)**: The incredible Nexus D3D11 Addon Engine for Guild Wars 2.
-* **[Helsinki-NLP](https://github.com/Helsinki-NLP)** & **[OpenNMT CTranslate2](https://github.com/OpenNMT/CTranslate2)**: Offline neural machine translation models.
-* **Developer & Turkish Localization:** **[Euphrates6](https://github.com/Euphrates6)** & **Antigravity (Google DeepMind)** — Custom font injection, smart glyph optimization, Epic Games compatible Rust bridge architecture, and multi-backend translation integration.
+* **[Euphrates6 (Fırat)](https://github.com/Euphrates6)**: Project architect, Turkish Font Injector (RAM Hook), GW2-TR Hub interface, stat/boon protection filters, and localization coordination. (Discord: `https://discord.com/users/287714928410755072`)
+* **[NikeGipple](https://github.com/NikeGipple)**: Upstream [gw2-nexus-local-translator](https://github.com/NikeGipple/gw2-nexus-local-translator) translation engine architecture and in-memory translation protocol.
+* **[ideka](https://github.com/ideka)**: Original [Text Translator](https://github.com/ideka/text-translator-public) Nexus addon and [modulep](https://github.com/ideka/modulep) IPC protocol for Guild Wars 2.
+* **[nourlie](https://github.com/nourlie)**: [GlyphCore](https://github.com/nourlie/GlyphCore) project for `Gw2.dat` AFNT font chunk structure, decompressor analysis, and RAM injection discoveries.
+* **[morluto](https://github.com/morluto)**: [REA (Reverse Engineering Assistant)](https://github.com/morluto/rea) reverse-engineering tools.
+* **[Raidcore Team](https://raidcore.gg/Nexus)**: The incredible Nexus D3D11 Addon Framework for Guild Wars 2.
+* **[Helsinki-NLP](https://github.com/Helsinki-NLP)** & **[OpenNMT CTranslate2](https://github.com/OpenNMT/CTranslate2)**: Offline neural machine translation framework and OPUS-MT Turkish models.
 
 ---
 
-## License & Legal
+## 📜 License & Legal
 
 This project is licensed under the [MIT License](LICENSE).
 
-> **Disclaimer:** Guild Wars 2, ArenaNet, and NCSoft are registered trademarks of their respective owners. This project is an unofficial, community-driven, non-commercial open-source localization tool not affiliated with ArenaNet.
+> **Legal Notice:** Guild Wars 2, ArenaNet, and NCSoft are registered trademarks of their respective owners. This project is an unofficial, community-driven, non-commercial localization and accessibility tool.

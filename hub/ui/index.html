@@ -1,0 +1,1275 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GW2 TR — Mod Installation Hub</title>
+    <link rel="icon" type="image/x-icon" href="./favicon.ico">
+    <script src="./tailwind.js"></script>
+    <link rel="stylesheet" href="./phosphor.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'ide-bg': '#181818',
+                        'ide-main': '#1e1e1e',
+                        'ide-panel': '#252526',
+                        'ide-border': '#333333',
+                        'ide-text': '#cccccc',
+                        'ide-muted': '#858585',
+                        'ide-hover': '#37373d',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['Roboto Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #1e1e1e;
+            color: #cccccc;
+            user-select: none;
+        }
+
+        /* IDE Scrollbar */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e1e1e;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #333333;
+            border: 2px solid #1e1e1e;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #858585;
+        }
+
+        /* Monochromatic Flat Toggle Switch */
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #181818;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #cccccc;
+            border-color: #cccccc;
+        }
+        .toggle-checkbox:checked + .toggle-label:after {
+            transform: translateX(100%);
+            background-color: #181818;
+        }
+        .toggle-label {
+            width: 36px;
+            height: 18px;
+            background-color: #181818;
+            border: 1px solid #333333;
+            border-radius: 2px;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .toggle-label:after {
+            content: '';
+            position: absolute;
+            top: 1px;
+            left: 1px;
+            width: 14px;
+            height: 14px;
+            background-color: #858585;
+            border-radius: 2px;
+            transition: all 0.2s ease;
+        }
+
+        .selectable {
+            user-select: text;
+        }
+
+        /* Expandable mod rows */
+        .row-head.drawer-open {
+            background-color: rgba(55, 55, 61, 0.5);
+        }
+        .row-head.drawer-open .opacity-0 {
+            opacity: 1;
+        }
+        .row-head.drawer-open .ph-sliders {
+            color: #cccccc;
+        }
+    </style>
+</head>
+<body class="h-screen w-full flex overflow-hidden font-sans antialiased text-sm bg-ide-main text-ide-text selection:bg-ide-hover selection:text-white">
+
+    <!-- Activity Bar (Sidebar) -->
+    <aside class="w-14 lg:w-16 h-full border-r border-ide-border flex flex-col items-center py-4 bg-ide-bg z-10 shrink-0">
+        <!-- Logo -->
+        <div class="mb-8 cursor-pointer text-ide-muted hover:text-ide-text transition-colors" onclick="switchTab('mods')" title="GW2 TR Mod Installation Hub">
+            <i class="ph ph-hexagon text-2xl"></i>
+        </div>
+
+        <!-- Nav Items -->
+        <nav class="flex flex-col gap-6 w-full items-center">
+            <a href="#" id="nav-mods" onclick="switchTab('mods'); return false;" class="text-ide-text relative border-l-2 border-ide-text w-full flex justify-center py-1" title="Mod Yönetimi & Kurulum (Mods)">
+                <i class="ph ph-puzzle-piece text-2xl -ml-0.5"></i>
+            </a>
+            <a href="#" id="nav-editor" onclick="switchTab('editor'); return false;" class="text-ide-muted hover:text-ide-text transition-colors w-full flex justify-center py-1" title="Canlı Çeviri Düzenleyici (Library / Editor)">
+                <i class="ph ph-files text-2xl"></i>
+            </a>
+            <a href="#" id="nav-downloads" onclick="switchTab('downloads'); return false;" class="text-ide-muted hover:text-ide-text transition-colors relative w-full flex justify-center py-1" title="Bileşenler & Yama Durumu (Downloads)">
+                <i class="ph ph-download-simple text-2xl"></i>
+                <span id="nexus-alert-dot" class="hidden absolute top-0.5 right-3 w-1.5 h-1.5 rounded-full bg-ide-text"></span>
+            </a>
+        </nav>
+
+        <!-- Bottom Nav -->
+        <div class="mt-auto flex flex-col gap-6 w-full items-center">
+            <a href="#" id="nav-about" onclick="switchTab('about'); return false;" class="text-ide-muted hover:text-ide-text transition-colors w-full flex justify-center py-1" title="Hakkında (About)">
+                <i class="ph ph-info text-2xl"></i>
+            </a>
+            <a href="#" id="nav-settings" onclick="switchTab('settings'); return false;" class="text-ide-muted hover:text-ide-text transition-colors w-full flex justify-center py-1" title="Çeviri Motoru & Kısayol Ayarları (Settings)">
+                <i class="ph ph-gear text-2xl"></i>
+            </a>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 h-full overflow-y-auto p-6 lg:p-8">
+        <div class="max-w-6xl mx-auto flex flex-col gap-6">
+            
+            <!-- Header -->
+            <header class="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4 border-b border-ide-border">
+                <div class="flex flex-col gap-1">
+                    <div class="flex items-center gap-3">
+                        <h1 class="text-2xl font-medium tracking-tight text-ide-text">Mod Installation Hub</h1>
+                        <span class="px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider bg-ide-panel border border-ide-border text-ide-text rounded-sm">TR ONLY • v0.12.0</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-ide-muted text-xs font-mono">
+                        <span>Workspace:</span>
+                        <span id="workspace-path" class="text-ide-text selectable">Aranıyor...</span>
+                        <button onclick="browseGameDir()" class="px-2 py-0.5 text-[11px] bg-ide-bg border border-ide-border text-ide-muted hover:text-ide-text hover:bg-ide-hover rounded-sm transition-colors">
+                            [ Klasör Seç ]
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button id="btn-install-all" onclick="installAll()" class="px-3.5 py-1.5 text-xs font-mono bg-ide-text text-ide-bg font-medium rounded-sm hover:opacity-90 transition-opacity flex items-center gap-2">
+                        <i class="ph ph-download-simple text-sm"></i>
+                        <span id="btn-install-all-label">TÜMÜNÜ KUR / GÜNCELLE</span>
+                    </button>
+                    <button onclick="launchGame()" class="px-3 py-1.5 text-xs font-mono bg-ide-panel border border-ide-border text-ide-text rounded-sm hover:bg-ide-hover transition-colors flex items-center gap-1.5" title="Guild Wars 2'yi Başlat">
+                        <i class="ph ph-play text-sm"></i>
+                        OYUNU BAŞLAT
+                    </button>
+                </div>
+            </header>
+
+            <!-- Missing Raidcore Nexus Alert Banner (Shown only when d3d11.dll is missing) -->
+            <div id="nexus-missing-banner" class="hidden bg-ide-panel border border-ide-text/60 rounded-sm p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div class="flex items-start gap-3">
+                    <i class="ph ph-warning-octagon text-xl text-ide-text mt-0.5"></i>
+                    <div class="flex flex-col gap-0.5">
+                        <span class="text-xs font-mono uppercase tracking-wider text-ide-text font-semibold">RAIDCORE NEXUS BULUNAMADI (d3d11.dll)</span>
+                        <p class="text-xs text-ide-muted">Çeviri aracının çalışması için Raidcore Nexus eklenti yöneticisi gereklidir. Tek tıkla otomatik kurabilir veya resmi sitesini ziyaret edebilirsiniz.</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                    <button onclick="installNexus()" class="px-3 py-1.5 text-xs font-mono bg-ide-text text-ide-bg font-medium rounded-sm hover:opacity-90 transition-opacity flex items-center gap-1.5">
+                        <i class="ph ph-lightning"></i> NEXUS OTOMATİK KUR
+                    </button>
+                    <button onclick="openNexusWebsite()" class="px-3 py-1.5 text-xs font-mono bg-ide-bg border border-ide-border text-ide-text rounded-sm hover:bg-ide-hover transition-colors flex items-center gap-1.5">
+                        <i class="ph ph-arrow-square-out"></i> RAIDCORE.GG
+                    </button>
+                </div>
+            </div>
+
+            <!-- ========================================================================= -->
+            <!-- TAB 1: MODS (Main Mod Installation & Toggle Hub)                          -->
+            <!-- ========================================================================= -->
+            <div id="tab-mods" class="flex flex-col gap-6">
+
+                <!-- Version Control & Updates Panel -->
+                <div class="bg-ide-panel border border-ide-border rounded-sm flex flex-col">
+                    <div class="flex justify-between items-center px-4 py-3 border-b border-ide-border bg-ide-bg/50">
+                        <h2 class="text-xs uppercase tracking-widest text-ide-text font-semibold flex items-center gap-2">
+                            <i class="ph ph-git-branch text-base"></i>
+                            Version Control &amp; System Log
+                        </h2>
+                        <div class="flex items-center gap-2">
+                            <span id="char-mode-pill" class="px-2.5 py-1 text-[11px] font-mono bg-ide-bg border border-ide-border text-ide-text rounded-sm">
+                                FONT INJECTOR: AÇIK (Ş, Ğ, İ, ı)
+                            </span>
+                            <button onclick="syncAll()" class="px-3 py-1 text-xs font-mono bg-ide-bg border border-ide-border text-ide-text rounded-sm hover:bg-ide-hover transition-colors flex items-center gap-2">
+                                SYNC STATUS <i class="ph ph-arrows-clockwise"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col md:flex-row p-4 gap-6">
+                        <!-- Version Diff -->
+                        <div class="flex flex-col gap-2 min-w-[210px]">
+                            <div class="bg-ide-bg border border-ide-border p-3 flex justify-between items-center rounded-sm">
+                                <span class="text-xs font-mono text-ide-muted">Installed</span>
+                                <span id="ver-installed" class="text-xs font-mono text-ide-muted">v0.11.0</span>
+                            </div>
+                            <div class="flex justify-center -my-3 z-10">
+                                <i class="ph ph-arrow-down text-ide-muted bg-ide-panel"></i>
+                            </div>
+                            <div class="bg-ide-hover border border-ide-border p-3 flex justify-between items-center rounded-sm">
+                                <span class="text-xs font-mono text-ide-text">Target Core</span>
+                                <span id="ver-latest" class="text-xs font-mono text-ide-text font-bold">v0.12.0-TR</span>
+                            </div>
+                        </div>
+
+                        <!-- Terminal Changelog / Live Activity Log -->
+                        <div class="flex-1 bg-ide-bg border border-ide-border rounded-sm p-3 flex flex-col">
+                            <div id="terminal-log" class="font-mono text-xs text-ide-muted space-y-1.5 h-28 overflow-y-auto pr-2 selection:bg-ide-hover selectable">
+                                <div><span class="text-ide-text">&gt; Initializing GW2 TR Mod Installation Hub... done.</span></div>
+                                <div class="flex gap-2">
+                                    <span class="text-ide-text">[+]</span>
+                                    <span>NikeGipple gw2-nexus-local-translator v0.12.0 çekirdeği yalnızca Türkçe (TR) olarak yapılandırıldı.</span>
+                                </div>
+                                <div class="flex gap-2">
+                                    <span class="text-ide-text">[+]</span>
+                                    <span>Euphrates6 gw2-font-injector Range-2 glif enjeksiyonu ve 6 harf (ş, Ş, ğ, Ğ, İ, ı) geri dönüşümü hazır.</span>
+                                </div>
+                                <div class="flex gap-2">
+                                    <span class="text-ide-text">[*]</span>
+                                    <span>Eşya (Item) ve Mekan (Location) isimlerini orijinal İngilizce koruma filtresi aktif.</span>
+                                </div>
+                                <div><span class="text-ide-text animate-pulse">_</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Installed Mods Section -->
+                <div class="bg-ide-panel border border-ide-border rounded-sm flex-1 flex flex-col min-h-[320px]">
+                    
+                    <!-- Toolbar -->
+                    <div class="flex justify-between items-center px-4 py-3 border-b border-ide-border bg-ide-bg/50">
+                        <h2 class="text-xs uppercase tracking-widest text-ide-text font-semibold">Installed Mods &amp; Localization Modules</h2>
+                        <div class="flex items-center gap-2">
+                            <div class="relative">
+                                <i class="ph ph-magnifying-glass absolute left-2 top-1/2 -translate-y-1/2 text-ide-muted"></i>
+                                <input id="mod-filter" oninput="filterMods(this.value)" type="text" placeholder="Filter mods..." class="bg-ide-bg border border-ide-border rounded-sm py-1 pl-7 pr-3 text-xs font-mono text-ide-text focus:outline-none focus:border-ide-muted transition-colors placeholder:text-ide-muted w-48">
+                            </div>
+                            <button onclick="switchTab('settings')" title="Gelişmiş Ayarlar" class="p-1 border border-ide-border bg-ide-bg rounded-sm hover:bg-ide-hover text-ide-muted hover:text-ide-text transition-colors">
+                                <i class="ph ph-faders text-base"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Mod List -->
+                    <div id="mod-list" class="flex flex-col">
+                        
+                        <!-- 1. Raidcore Nexus Framework -->
+                        <div class="mod-row flex flex-col border-b border-ide-border" data-name="raidcore nexus d3d11 framework">
+                            <div class="flex items-center justify-between px-4 py-3.5 hover:bg-ide-hover/50 transition-colors group">
+                                <div class="flex items-center gap-4 w-3/5">
+                                    <div class="relative inline-block w-[36px] h-[18px]">
+                                        <input id="toggle-nexus" type="checkbox" onchange="onToggleMod('nexus', this.checked)" class="toggle-checkbox absolute block w-4 h-4 appearance-none cursor-pointer z-10 opacity-0"/>
+                                        <label for="toggle-nexus" class="toggle-label block overflow-hidden rounded-sm cursor-pointer"></label>
+                                    </div>
+                                    <div class="flex flex-col">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-sm text-ide-text font-medium">Raidcore Nexus Addon Loader</span>
+                                            <span id="badge-nexus" class="px-1.5 py-0.5 text-[10px] font-mono bg-ide-bg border border-ide-border text-ide-muted rounded-sm">d3d11.dll</span>
+                                        </div>
+                                        <span class="text-[10px] font-mono text-ide-muted">Core Framework • Author: Raidcore • Eklentilerin çalışması için zorunlu ana katman</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center justify-end gap-4 w-2/5">
+                                    <button onclick="openNexusWebsite()" class="px-2 py-1 text-[10px] font-mono bg-ide-bg border border-ide-border text-ide-muted hover:text-ide-text rounded-sm transition-colors">
+                                        raidcore.gg <i class="ph ph-arrow-up-right"></i>
+                                    </button>
+                                    <span id="status-nexus" class="text-xs font-mono text-ide-muted w-20 text-right">Kurulu</span>
+                                    <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button onclick="installNexus()" title="Nexus'u Yeniden Kur / Güncelle" class="p-1 text-ide-muted hover:text-ide-text hover:bg-ide-hover rounded-sm transition-colors"><i class="ph ph-download-simple"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 2. Text Translator Addon + ALT+T Keybind -->
+                        <div class="mod-row flex flex-col border-b border-ide-border" data-name="text translator addon ideka kısayol alt+t">
+                            <div data-drawer="drawer-tt" class="row-head cursor-pointer flex items-center justify-between px-4 py-3.5 hover:bg-ide-hover/50 transition-colors group">
+                                <div class="flex items-center gap-4 w-3/5">
+                                    <div class="relative inline-block w-[36px] h-[18px]">
+                                        <input id="toggle-tt" type="checkbox" onchange="onToggleMod('text_translator', this.checked)" class="toggle-checkbox absolute block w-4 h-4 appearance-none cursor-pointer z-10 opacity-0"/>
+                                        <label for="toggle-tt" class="toggle-label block overflow-hidden rounded-sm cursor-pointer"></label>
+                                    </div>
+                                    <div class="flex flex-col">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-sm text-ide-text font-medium">Text Translator Addon</span>
+                                            <span class="px-1.5 py-0.5 text-[10px] font-mono bg-ide-bg border border-ide-border text-ide-muted rounded-sm">text_translator.dll</span>
+                                        </div>
+                                        <span class="text-[10px] font-mono text-ide-muted">Nexus Addon • Author: Ideka • Oyun içi metin yakalama ve çeviri aç/kapa kısayolu</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center justify-end gap-4 w-2/5">
+                                    <button id="btn-keybind-inline" onclick="startKeybindCapture()" title="Oyun İçi Çeviri Aç/Kapa Kısayolunu Değiştir" class="px-2.5 py-1 text-[11px] font-mono bg-ide-bg border border-ide-border text-ide-text hover:bg-ide-hover rounded-sm transition-colors flex items-center gap-1.5">
+                                        <i class="ph ph-keyboard text-xs text-ide-muted"></i>
+                                        <span id="keybind-label">ALT + T</span>
+                                    </button>
+                                    <span class="text-xs font-mono text-ide-muted w-20 text-right">v0.2.0</span>
+                                    <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button onclick="toggleDrawer('drawer-tt')" title="Kısayol Ayarları" class="p-1 text-ide-muted hover:text-ide-text hover:bg-ide-hover rounded-sm transition-colors"><i class="ph ph-sliders"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Drawer: Keybind Config -->
+                            <div id="drawer-tt" class="hidden px-14 py-3 bg-ide-bg border-t border-ide-border text-xs flex flex-wrap items-center justify-between gap-4">
+                                <div class="flex flex-col gap-0.5">
+                                    <span class="text-ide-text font-medium">Oyun İçi Çeviri Aç / Kapa Kısayolu (Nexus InputBinds.json)</span>
+                                    <span class="text-ide-muted text-[11px]">Oyun içindeyken bu tuş kombinasyonuna bastığınızda çeviri anında açılır, tekrar bastığınızda orijinal İngilizceye döner.</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button id="btn-keybind-drawer" onclick="startKeybindCapture()" class="px-3 py-1 font-mono bg-ide-panel border border-ide-border text-ide-text hover:bg-ide-hover rounded-sm">
+                                        Tuş Ata: [ <span id="keybind-drawer-label">ALT + T</span> ]
+                                    </button>
+                                    <button onclick="resetDefaultKeybind()" class="px-2.5 py-1 font-mono bg-ide-bg border border-ide-border text-ide-muted hover:text-ide-text rounded-sm">
+                                        Varsayılan (ALT+T)
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 3. GW2 Local Translator TR (Turkish-Only Engine) -->
+                        <div class="mod-row flex flex-col border-b border-ide-border" data-name="gw2 local translator tr türkçe çeviri motoru opus-mt">
+                            <div data-drawer="drawer-lt" class="row-head cursor-pointer flex items-center justify-between px-4 py-3.5 hover:bg-ide-hover/50 transition-colors group">
+                                <div class="flex items-center gap-4 w-3/5">
+                                    <div class="relative inline-block w-[36px] h-[18px]">
+                                        <input id="toggle-lt" type="checkbox" onchange="onToggleMod('local_translator', this.checked)" class="toggle-checkbox absolute block w-4 h-4 appearance-none cursor-pointer z-10 opacity-0"/>
+                                        <label for="toggle-lt" class="toggle-label block overflow-hidden rounded-sm cursor-pointer"></label>
+                                    </div>
+                                    <div class="flex flex-col">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-sm text-ide-text font-medium">GW2 Local Translator — Türkçe Motor</span>
+                                            <span id="badge-backend" class="px-1.5 py-0.5 text-[10px] font-mono bg-ide-bg border border-ide-border text-ide-text rounded-sm">ÇEVRİMDIŞI OPUS-MT</span>
+                                        </div>
+                                        <span class="text-[10px] font-mono text-ide-muted">Localization Engine (TR Only) • Author: NikeGipple &amp; Euphrates6 • Eşya &amp; Mekan İsim Korumalı</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center justify-end gap-4 w-2/5">
+                                    <button onclick="switchTab('editor')" class="px-2 py-1 text-[10px] font-mono bg-ide-bg border border-ide-border text-ide-muted hover:text-ide-text rounded-sm transition-colors">
+                                        Çeviri Düzenle <i class="ph ph-pencil-simple"></i>
+                                    </button>
+                                    <span class="text-xs font-mono text-ide-muted w-20 text-right">v0.12.0</span>
+                                    <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button onclick="toggleDrawer('drawer-lt')" title="Çeviri Motoru ve Eşya/Mekan Koruma Ayarları" class="p-1 text-ide-muted hover:text-ide-text hover:bg-ide-hover rounded-sm transition-colors"><i class="ph ph-sliders"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Drawer: Translator Quick Settings -->
+                            <div id="drawer-lt" class="hidden px-14 py-3.5 bg-ide-bg border-t border-ide-border text-xs flex flex-col gap-3">
+                                <div class="flex flex-wrap items-center justify-between gap-4">
+                                    <div class="flex flex-col gap-0.5">
+                                        <span class="text-ide-text font-medium">Eşya, Mekan, Stat, Set ve Boon/Condition İsimlerini İngilizce Bırak</span>
+                                        <span class="text-ide-muted text-[11px]">Silah, zırh, materyal, harita/POI, statlar (+Power, +Toughness vb.), stat setleri (Berserker, Viper vb.), boon ve condition'lar İngilizce kalır; diyaloglar ve arayüz Türkçeleştirilir.</span>
+                                    </div>
+                                    <div class="relative inline-block w-[36px] h-[18px]">
+                                        <input id="toggle-keep-items" type="checkbox" checked onchange="onToggleKeepItems(this.checked)" class="toggle-checkbox absolute block w-4 h-4 appearance-none cursor-pointer z-10 opacity-0"/>
+                                        <label for="toggle-keep-items" class="toggle-label block overflow-hidden rounded-sm cursor-pointer"></label>
+                                    </div>
+                                </div>
+                                <div class="flex flex-wrap items-center justify-between gap-4 pt-2 border-t border-ide-border/60">
+                                    <div class="flex flex-col gap-0.5">
+                                        <span class="text-ide-text font-medium">Çeviri Motoru Seçimi (Ana Öncelik: Çevrimdışı OPUS-MT)</span>
+                                        <span class="text-ide-muted text-[11px]">İnternet veya API anahtarı gerektirmeyen yerel CTranslate2 modeli varsayılandır. İsteğe bağlı bulut API seçilebilir.</span>
+                                    </div>
+                                    <select id="select-backend-inline" onchange="onChangeBackend(this.value)" class="bg-ide-panel border border-ide-border rounded-sm px-2.5 py-1 text-xs font-mono text-ide-text focus:outline-none">
+                                        <option value="offline">Çevrimdışı OPUS-MT (Önerilen - Yerel CPU)</option>
+                                        <option value="google">Bulut: Google Translate (Opsiyonel)</option>
+                                        <option value="deepl">Bulut: DeepL API (Opsiyonel)</option>
+                                        <option value="gemini">Bulut: Google Gemini API (Opsiyonel)</option>
+                                        <option value="openai">Bulut: OpenAI GPT API (Opsiyonel)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 4. GW2 Turkish Font & Glyph Injector (Optional Choice!) -->
+                        <div class="mod-row flex flex-col border-b border-ide-border" data-name="turkish font injector türkçe karakter desteği ş ğ ı İ">
+                            <div data-drawer="drawer-font" class="row-head cursor-pointer flex items-center justify-between px-4 py-3.5 hover:bg-ide-hover/50 transition-colors group">
+                                <div class="flex items-center gap-4 w-3/5">
+                                    <div class="relative inline-block w-[36px] h-[18px]">
+                                        <input id="toggle-font" type="checkbox" checked onchange="onToggleFontInjector(this.checked)" class="toggle-checkbox absolute block w-4 h-4 appearance-none cursor-pointer z-10 opacity-0"/>
+                                        <label for="toggle-font" class="toggle-label block overflow-hidden rounded-sm cursor-pointer"></label>
+                                    </div>
+                                    <div class="flex flex-col">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-sm text-ide-text font-medium">GW2 Turkish Font &amp; Glyph Injector (İsteğe Bağlı)</span>
+                                            <span id="badge-font-mode" class="px-1.5 py-0.5 text-[10px] font-mono bg-ide-bg border border-ide-border text-ide-text rounded-sm">TAM TÜRKÇE GLİF</span>
+                                        </div>
+                                        <span id="desc-font-mode" class="text-[10px] font-mono text-ide-muted">Typography • Author: Euphrates6 • Açık: Ş, ş, Ğ, ğ, İ, ı tam görünür | Kapalı: 6 harf S, s, G, g, I, i olur (Ç, Ö, Ü korunur)</span>
+                                    </div>
+                                </div>
+                                <div class="flex items-center justify-end gap-4 w-2/5">
+                                    <span class="text-xs font-mono text-ide-muted w-20 text-right">v1.1.0</span>
+                                    <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button onclick="toggleDrawer('drawer-font')" title="Karakter Dönüşüm Detayları" class="p-1 text-ide-muted hover:text-ide-text hover:bg-ide-hover rounded-sm transition-colors"><i class="ph ph-sliders"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Drawer: Font Injector Details -->
+                            <div id="drawer-font" class="hidden px-14 py-3 bg-ide-bg border-t border-ide-border text-xs flex flex-col gap-2">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 font-mono text-[11px]">
+                                    <div class="p-2.5 bg-ide-panel border border-ide-border rounded-sm">
+                                        <div class="text-ide-text font-semibold mb-1">[AÇIK] Bellek İçi (In-Memory) Glif Enjeksiyonu</div>
+                                        <div class="text-ide-muted">Gw2.dat dosyasına dokunmadan Range-2 Latin Extended-A font atlaslarını RAM'den yükler. Tüm Türkçe karakterler (<span class="text-ide-text">ş, Ş, ğ, Ğ, İ, ı, ç, Ç, ö, Ö, ü, Ü</span>) kusursuz görünür.</div>
+                                    </div>
+                                    <div class="p-2.5 bg-ide-panel border border-ide-border rounded-sm">
+                                        <div class="text-ide-text font-semibold mb-1">[KAPALI] 6 Harf Akıllı İngilizce Karaktere Dönüşüm</div>
+                                        <div class="text-ide-muted">Font Injector devre dışı bırakılır. Yalnızca oyunda kutucuk çıkaran 6 harf (<span class="text-ide-text">ş→s, Ş→S, ğ→g, Ğ→G, İ→I, ı→i</span>) dönüştürülür; oyunun desteklediği <span class="text-ide-text">ç, Ç, ö, Ö, ü, Ü</span> harfleri korunur.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================================================= -->
+            <!-- TAB 2: LIVE TRANSLATION EDITOR (NikeGipple v0.12.0 Editor Integration)     -->
+            <!-- ========================================================================= -->
+            <div id="tab-editor" class="hidden flex-col gap-6">
+                <div class="bg-ide-panel border border-ide-border rounded-sm flex flex-col">
+                    <div class="flex flex-wrap justify-between items-center gap-2 px-4 py-3 border-b border-ide-border bg-ide-bg/50">
+                        <div class="flex items-center gap-2">
+                            <i class="ph ph-note-pencil text-base text-ide-text"></i>
+                            <h2 class="text-xs uppercase tracking-widest text-ide-text font-semibold">Canlı Çeviri Düzenleyici (Live &amp; Offline Editor)</h2>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span id="editor-mode-badge" class="px-2 py-0.5 text-[10px] font-mono bg-ide-bg border border-ide-border text-ide-muted rounded-sm">
+                                VERİTABANI MODU (map_tr.db + cache.db)
+                            </span>
+                            <button onclick="openBrowserEditor()" class="px-2.5 py-1 text-[11px] font-mono bg-ide-bg border border-ide-border text-ide-muted hover:text-ide-text rounded-sm transition-colors flex items-center gap-1">
+                                Tarayıcıda Aç (127.0.0.1:8770) <i class="ph ph-arrow-square-out"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="p-4 flex flex-col gap-4">
+                        <p class="text-xs text-ide-muted">
+                            Oyunda gördüğünüz herhangi bir metni <span class="text-ide-text font-mono">Türkçe çevirisi</span>, <span class="text-ide-text font-mono">orijinal İngilizcesi</span> veya <span class="text-ide-text font-mono">String ID (Örn: 37952)</span> ile arayın, düzenleyip kaydedin. Oyun açıkken değişiklik 1-2 saniye içinde ekrana yansır; oyun kapalıyken doğrudan <span class="font-mono">map_tr.db</span> ve <span class="font-mono">cache.db</span> içine işlenir.
+                        </p>
+
+                        <!-- Search Bar -->
+                        <form onsubmit="searchEditor(event)" class="flex flex-col sm:flex-row gap-2">
+                            <div class="relative flex-1">
+                                <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-ide-muted"></i>
+                                <input id="editor-query" type="text" placeholder="Metin veya String ID ara (Örn: Saldırı, Waypoint, 37952)..." class="w-full bg-ide-bg border border-ide-border rounded-sm py-2 pl-9 pr-3 text-xs font-mono text-ide-text focus:outline-none focus:border-ide-text">
+                            </div>
+                            <label class="flex items-center gap-2 px-3 py-2 bg-ide-bg border border-ide-border rounded-sm text-xs font-mono text-ide-muted cursor-pointer">
+                                <input id="editor-exact" type="checkbox" class="accent-ide-text">
+                                Tam Eşleşme
+                            </label>
+                            <button type="submit" class="px-5 py-2 text-xs font-mono bg-ide-text text-ide-bg font-medium rounded-sm hover:opacity-90 transition-opacity">
+                                ARA
+                            </button>
+                        </form>
+
+                        <!-- Search Results -->
+                        <div id="editor-results" class="flex flex-col gap-2.5 max-h-[420px] overflow-y-auto pr-1">
+                            <div class="text-xs font-mono text-ide-muted py-6 text-center border border-dashed border-ide-border rounded-sm">
+                                Düzenlemek istediğiniz oyun metnini yukarıdan arayın veya aşağıdaki son düzenlemelerden seçin.
+                            </div>
+                        </div>
+
+                        <!-- Recent Suggestions -->
+                        <div class="pt-3 border-t border-ide-border flex flex-col gap-2">
+                            <div class="flex justify-between items-center">
+                                <span class="text-[11px] font-mono uppercase tracking-wider text-ide-muted">Son Yapılan Düzenlemeler (map_tr.db)</span>
+                                <button onclick="loadRecentSuggestions()" class="text-[11px] font-mono text-ide-muted hover:text-ide-text flex items-center gap-1">
+                                    <i class="ph ph-arrows-clockwise"></i> Yenile
+                                </button>
+                            </div>
+                            <div id="editor-recent" class="grid grid-cols-1 md:grid-cols-2 gap-2"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================================================= -->
+            <!-- TAB 3: DOWNLOADS & COMPONENT STATUS                                        -->
+            <!-- ========================================================================= -->
+            <div id="tab-downloads" class="hidden flex-col gap-6">
+                <div class="bg-ide-panel border border-ide-border rounded-sm flex flex-col">
+                    <div class="flex justify-between items-center px-4 py-3 border-b border-ide-border bg-ide-bg/50">
+                        <h2 class="text-xs uppercase tracking-widest text-ide-text font-semibold flex items-center gap-2">
+                            <i class="ph ph-package text-base"></i>
+                            Bileşen &amp; Paket Doğrulama Merkezi
+                        </h2>
+                        <button onclick="installAll()" class="px-3 py-1 text-xs font-mono bg-ide-text text-ide-bg font-medium rounded-sm hover:opacity-90 transition-opacity">
+                            EKSİKLERİ ONAR / KUR
+                        </button>
+                    </div>
+
+                    <div id="component-cards" class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-ide-bg border border-ide-border p-4 rounded-sm flex flex-col justify-between gap-3">
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="text-sm font-medium text-ide-text">Raidcore Nexus (d3d11.dll)</span>
+                                    <span id="dl-status-nexus" class="text-[11px] font-mono text-ide-muted">Kontrol ediliyor...</span>
+                                </div>
+                                <p class="text-xs text-ide-muted">GW2 ana dizininde eklentileri yükleyen çerçeve. Eksikse yerel paketten veya Raidcore sunucusundan otomatik kurulur.</p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button onclick="installNexus()" class="px-3 py-1 text-xs font-mono bg-ide-panel border border-ide-border text-ide-text hover:bg-ide-hover rounded-sm">Otomatik Yükle</button>
+                                <button onclick="openNexusWebsite()" class="px-3 py-1 text-xs font-mono bg-ide-bg border border-ide-border text-ide-muted hover:text-ide-text rounded-sm">raidcore.gg</button>
+                            </div>
+                        </div>
+
+                        <div class="bg-ide-bg border border-ide-border p-4 rounded-sm flex flex-col justify-between gap-3">
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="text-sm font-medium text-ide-text">Çevrimdışı OPUS-MT Model (model.bin)</span>
+                                    <span id="dl-status-model" class="text-[11px] font-mono text-ide-muted">Kontrol ediliyor...</span>
+                                </div>
+                                <p class="text-xs text-ide-muted">İnternetsiz çalışan CTranslate2 Türkçe sinirsel makine çevirisi modeli (TR/model/model.bin + SentencePiece).</p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[11px] font-mono text-ide-muted">Konum: addons/text_translator/modules/local_translator_tr/TR/model</span>
+                            </div>
+                        </div>
+
+                        <div class="bg-ide-bg border border-ide-border p-4 rounded-sm flex flex-col justify-between gap-3">
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="text-sm font-medium text-ide-text">Türkçe Sözlük &amp; Yamalar (glossary_tr.json)</span>
+                                    <span id="dl-status-glossary" class="text-[11px] font-mono text-ide-muted">Kontrol ediliyor...</span>
+                                </div>
+                                <p class="text-xs text-ide-muted">3.600+ GW2 terimi, arayüz kalıbı ve özel isim koruma kuralları.</p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button onclick="syncCharacterModeNow()" class="px-3 py-1 text-xs font-mono bg-ide-panel border border-ide-border text-ide-text hover:bg-ide-hover rounded-sm">Önbelleği (cache.db) Senkronize Et</button>
+                            </div>
+                        </div>
+
+                        <div class="bg-ide-bg border border-ide-border p-4 rounded-sm flex flex-col justify-between gap-3">
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="text-sm font-medium text-ide-text">GW2 Turkish Font Atlases (3.3 MB)</span>
+                                    <span id="dl-status-font" class="text-[11px] font-mono text-ide-muted">Kontrol ediliyor...</span>
+                                </div>
+                                <p class="text-xs text-ide-muted">53 adet RLE sıkıştırmalı Range-2 Türkçe font atlası (turkish_font.dll &amp; version.dll içine gömülü).</p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[11px] font-mono text-ide-muted">Durum: Çift kanca korumalı (Safe Dual-Guard)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================================================= -->
+            <!-- TAB 5: ABOUT (Version, GitHub, Discord)                                    -->
+            <!-- ========================================================================= -->
+            <div id="tab-about" class="hidden flex-col gap-6">
+                <div class="bg-ide-panel border border-ide-border rounded-sm flex flex-col">
+                    <div class="flex justify-between items-center px-4 py-3 border-b border-ide-border bg-ide-bg/50">
+                        <h2 class="text-xs uppercase tracking-widest text-ide-text font-semibold flex items-center gap-2">
+                            <i class="ph ph-info text-base"></i>
+                            Hakkında
+                        </h2>
+                        <span class="text-[11px] font-mono text-ide-muted">v0.12.0</span>
+                    </div>
+
+                    <div class="p-6 flex items-center gap-5 border-b border-ide-border">
+                        <div class="w-14 h-14 flex items-center justify-center bg-ide-bg border border-ide-border rounded-sm text-ide-text shrink-0">
+                            <i class="ph ph-hexagon text-4xl"></i>
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <span class="text-base text-ide-text font-medium">GW2 TR — Mod Installation Hub</span>
+                            <span class="text-xs text-ide-muted">Guild Wars 2 için Türkçe yerelleştirme: çevrimdışı çeviri motoru, Türkçe font enjektörü ve canlı çeviri düzenleyici.</span>
+                        </div>
+                    </div>
+
+                    <!-- Version table -->
+                    <div class="flex flex-col font-mono text-xs">
+                        <div class="flex justify-between px-6 py-2.5 border-b border-ide-border">
+                            <span class="text-ide-muted">Uygulama Sürümü</span>
+                            <span class="text-ide-text">v0.12.0</span>
+                        </div>
+                        <div class="flex justify-between px-6 py-2.5 border-b border-ide-border">
+                            <span class="text-ide-muted">Çeviri Motoru</span>
+                            <span class="text-ide-text">Local Translator TR v0.12.0 (OPUS-MT / CTranslate2)</span>
+                        </div>
+                        <div class="flex justify-between px-6 py-2.5 border-b border-ide-border">
+                            <span class="text-ide-muted">Font Enjektörü</span>
+                            <span class="text-ide-text">GW2 Turkish Font Injector v1.1.0</span>
+                        </div>
+                        <div class="flex justify-between px-6 py-2.5 border-b border-ide-border">
+                            <span class="text-ide-muted">Eklenti Çerçevesi</span>
+                            <span class="text-ide-text">Raidcore Nexus + Text Translator v0.2.0</span>
+                        </div>
+                    </div>
+
+                    <!-- Links -->
+                    <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <button onclick="openExternal('https://github.com/Euphrates6/gw2-turkish-localization')" class="text-left bg-ide-bg border border-ide-border p-4 rounded-sm hover:bg-ide-hover transition-colors flex items-center gap-3 group">
+                            <i class="ph ph-github-logo text-2xl text-ide-muted group-hover:text-ide-text transition-colors"></i>
+                            <div class="flex flex-col flex-1 min-w-0">
+                                <span class="text-sm text-ide-text font-medium">GitHub</span>
+                                <span class="text-[11px] font-mono text-ide-muted truncate">Euphrates6/gw2-turkish-localization</span>
+                            </div>
+                            <i class="ph ph-arrow-up-right text-ide-muted group-hover:text-ide-text"></i>
+                        </button>
+                        <button onclick="openExternal('https://discord.com/users/287714928410755072')" class="text-left bg-ide-bg border border-ide-border p-4 rounded-sm hover:bg-ide-hover transition-colors flex items-center gap-3 group">
+                            <i class="ph ph-discord-logo text-2xl text-ide-muted group-hover:text-ide-text transition-colors"></i>
+                            <div class="flex flex-col flex-1 min-w-0">
+                                <span class="text-sm text-ide-text font-medium">Discord</span>
+                                <span class="text-[11px] font-mono text-ide-muted truncate">Geliştirici profili • Euphrates6</span>
+                            </div>
+                            <i class="ph ph-arrow-up-right text-ide-muted group-hover:text-ide-text"></i>
+                        </button>
+                    </div>
+
+                    <div class="px-6 py-3 border-t border-ide-border text-[11px] text-ide-muted">
+                        Teşekkürler: NikeGipple (gw2-nexus-local-translator), Ideka (Text Translator), Raidcore (Nexus).
+                        Guild Wars 2, ArenaNet LLC ve NCSoft'un tescilli markasıdır; bu araç resmi olmayan, ücretsiz bir topluluk projesidir.
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================================================= -->
+            <!-- TAB 4: SETTINGS (Engine, Keybind, Item Protection, Contributor Profile)    -->
+            <!-- ========================================================================= -->
+            <div id="tab-settings" class="hidden flex-col gap-6">
+                <div class="bg-ide-panel border border-ide-border rounded-sm flex flex-col">
+                    <div class="flex justify-between items-center px-4 py-3 border-b border-ide-border bg-ide-bg/50">
+                        <h2 class="text-xs uppercase tracking-widest text-ide-text font-semibold flex items-center gap-2">
+                            <i class="ph ph-gear text-base"></i>
+                            Yapılandırma &amp; Mühendislik Ayarları
+                        </h2>
+                        <button onclick="saveAllSettings()" class="px-3.5 py-1 text-xs font-mono bg-ide-text text-ide-bg font-medium rounded-sm hover:opacity-90 transition-opacity">
+                            AYARLARI KAYDET
+                        </button>
+                    </div>
+
+                    <div class="p-5 flex flex-col gap-5">
+                        <!-- Setting 1: Font Injector & 6-Char Fallback -->
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-ide-border">
+                            <div class="flex flex-col gap-1">
+                                <span class="text-sm font-medium text-ide-text">1. Türkçe Karakter Desteği (GW2 Turkish Font Injector)</span>
+                                <span class="text-xs text-ide-muted">Açık olduğunda oyuna Türkçe glifler enjekte edilir. Kapatıldığında yalnızca oyunda kutucuk çıkaran 6 harf (<span class="font-mono text-ide-text">ş→s, Ş→S, ğ→g, Ğ→G, İ→I, ı→i</span>) dönüştürülür.</span>
+                            </div>
+                            <div class="flex items-center gap-3 shrink-0">
+                                <span id="settings-font-label" class="text-xs font-mono text-ide-text">AÇIK</span>
+                                <div class="relative inline-block w-[36px] h-[18px]">
+                                    <input id="settings-toggle-font" type="checkbox" checked onchange="onToggleFontInjector(this.checked)" class="toggle-checkbox absolute block w-4 h-4 appearance-none cursor-pointer z-10 opacity-0"/>
+                                    <label for="settings-toggle-font" class="toggle-label block overflow-hidden rounded-sm cursor-pointer"></label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Setting 2: Keep Item & Location Names in English -->
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-ide-border">
+                            <div class="flex flex-col gap-1">
+                                <span class="text-sm font-medium text-ide-text">2. Eşya, Mekan, Stat, Set ve Boon/Condition Terimlerini İngilizce Bırak</span>
+                                <span class="text-xs text-ide-muted">Wiki aramaları, Trading Post, build rehberleri ve sohbet linkleri (%100 uyum) için eşya, harita, statlar (Power, Toughness), setler (Berserker, Viper) ve boon/condition'ları İngilizce korur.</span>
+                            </div>
+                            <div class="flex items-center gap-3 shrink-0">
+                                <span id="settings-items-label" class="text-xs font-mono text-ide-text">AÇIK</span>
+                                <div class="relative inline-block w-[36px] h-[18px]">
+                                    <input id="settings-toggle-items" type="checkbox" checked onchange="onToggleKeepItems(this.checked)" class="toggle-checkbox absolute block w-4 h-4 appearance-none cursor-pointer z-10 opacity-0"/>
+                                    <label for="settings-toggle-items" class="toggle-label block overflow-hidden rounded-sm cursor-pointer"></label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Setting 3: In-Game Toggle Keybind (ALT+T) -->
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-ide-border">
+                            <div class="flex flex-col gap-1">
+                                <span class="text-sm font-medium text-ide-text">3. Oyun İçi Çeviri Aç / Kapa Kısayolu (Nexus InputBinds)</span>
+                                <span class="text-xs text-ide-muted">Oyundayken çeviriyi anlık açıp kapatmak için kullanılan kısayol tuşu (Varsayılan: <span class="font-mono text-ide-text">ALT + T</span>).</span>
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <button onclick="startKeybindCapture()" class="px-3 py-1.5 text-xs font-mono bg-ide-bg border border-ide-border text-ide-text hover:bg-ide-hover rounded-sm">
+                                    [ <span id="settings-keybind-label">ALT + T</span> ] — Değiştirmek İçin Tıkla
+                                </button>
+                                <button onclick="resetDefaultKeybind()" class="px-2.5 py-1.5 text-xs font-mono bg-ide-panel border border-ide-border text-ide-muted hover:text-ide-text rounded-sm">
+                                    Sıfırla
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Setting 4: Translation Engine (Offline Priority + Optional Cloud) -->
+                        <div class="flex flex-col gap-3 pb-4 border-b border-ide-border">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                <div class="flex flex-col gap-1">
+                                    <span class="text-sm font-medium text-ide-text">4. Çeviri Motoru &amp; Performans (Çevrimdışı Öncelikli)</span>
+                                    <span class="text-xs text-ide-muted">Ana destek çevrimdışı OPUS-MT modelidir. İsteğe bağlı bulut çeviri seçerseniz API anahtarı girebilirsiniz.</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <select id="settings-backend" onchange="onChangeBackend(this.value)" class="bg-ide-bg border border-ide-border rounded-sm px-3 py-1.5 text-xs font-mono text-ide-text focus:outline-none">
+                                        <option value="offline">Çevrimdışı OPUS-MT (Ana Motor)</option>
+                                        <option value="google">Bulut: Google Translate (Ücretsiz)</option>
+                                        <option value="deepl">Bulut: DeepL API</option>
+                                        <option value="gemini">Bulut: Google Gemini API</option>
+                                        <option value="openai">Bulut: OpenAI GPT API</option>
+                                    </select>
+                                    <select id="settings-threads" class="bg-ide-bg border border-ide-border rounded-sm px-2.5 py-1.5 text-xs font-mono text-ide-text focus:outline-none" title="CPU Çekirdek Sayısı">
+                                        <option value="1">1 Thread</option>
+                                        <option value="2" selected>2 Threads (Önerilen)</option>
+                                        <option value="4">4 Threads</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div id="cloud-api-box" class="hidden grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
+                                <div class="flex flex-col gap-1">
+                                    <label class="text-[11px] font-mono text-ide-muted">Bulut API Anahtarı (DeepL / Gemini / OpenAI)</label>
+                                    <input id="settings-api-key" type="password" placeholder="API Key..." class="bg-ide-bg border border-ide-border rounded-sm px-3 py-1.5 text-xs font-mono text-ide-text focus:outline-none">
+                                </div>
+                                <div class="flex flex-col gap-1">
+                                    <label class="text-[11px] font-mono text-ide-muted">Model Adı (Opsiyonel: gemini-2.5-flash / gpt-4o-mini)</label>
+                                    <input id="settings-model-name" type="text" placeholder="Varsayılan model" class="bg-ide-bg border border-ide-border rounded-sm px-3 py-1.5 text-xs font-mono text-ide-text focus:outline-none">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Setting 5: Contributor Name & Show Keys -->
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div class="flex flex-col gap-1">
+                                <span class="text-sm font-medium text-ide-text">5. Çeviri Düzenleyici Profili &amp; String ID Gösterimi (show_keys)</span>
+                                <span class="text-xs text-ide-muted">Düzenlediğiniz metinlerin kaydedileceği profil adı ve oyun içinde metinlerin başında String ID (<span class="font-mono">44547 - Metin</span>) gösterme modu.</span>
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <input id="settings-author" type="text" value="Oyuncu" placeholder="Profil Adı" class="w-32 bg-ide-bg border border-ide-border rounded-sm px-2.5 py-1.5 text-xs font-mono text-ide-text focus:outline-none">
+                                <select id="settings-show-keys" class="bg-ide-bg border border-ide-border rounded-sm px-2.5 py-1.5 text-xs font-mono text-ide-text focus:outline-none">
+                                    <option value="off">String ID: Kapalı</option>
+                                    <option value="text">String ID: Yalnızca Metinler</option>
+                                    <option value="all">String ID: Tüm Şablonlar</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Keybind Recorder Modal -->
+    <div id="keybind-modal" class="hidden fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4">
+        <div class="bg-ide-panel border border-ide-border rounded-sm max-w-md w-full p-6 flex flex-col items-center text-center gap-4">
+            <i class="ph ph-keyboard text-3xl text-ide-text"></i>
+            <div class="flex flex-col gap-1">
+                <h3 class="text-base font-medium text-ide-text">Oyun İçi Çeviri Kısayolunu Tuşlayın</h3>
+                <p class="text-xs text-ide-muted">Örn: <span class="font-mono text-ide-text">ALT + T</span>, <span class="font-mono text-ide-text">CTRL + T</span> veya <span class="font-mono text-ide-text">F8</span> tuşlarına basın.</p>
+            </div>
+            <div id="keybind-preview" class="w-full py-3 bg-ide-bg border border-ide-border rounded-sm font-mono text-sm text-ide-text">
+                Tuş bekleniyor...
+            </div>
+            <div class="flex items-center gap-2 w-full justify-end">
+                <button onclick="stopKeybindCapture()" class="px-3 py-1.5 text-xs font-mono bg-ide-bg border border-ide-border text-ide-muted hover:text-ide-text rounded-sm">
+                    İptal (ESC)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let appState = {
+            game_dir: "",
+            nexus_installed: false,
+            tt_installed: false,
+            lt_installed: false,
+            font_injector: true,
+            char_mode: "full",
+            keep_items_english: true,
+            backend: "offline",
+            threads: 2,
+            api_key: "",
+            model_name: "",
+            author: "Oyuncu",
+            show_keys: "off",
+            keybind: { alt: true, ctrl: false, shift: false, key: "T", scancode: 20, label: "ALT + T" }
+        };
+
+        let capturingKeybind = false;
+
+        // DirectInput ScanCode map for US/TR QWERTY keyboard layout used by Raidcore Nexus
+        const KEY_TO_SCANCODE = {
+            "Escape": 1, "Digit1": 2, "Digit2": 3, "Digit3": 4, "Digit4": 5, "Digit5": 6,
+            "Digit6": 7, "Digit7": 8, "Digit8": 9, "Digit9": 10, "Digit0": 11,
+            "KeyQ": 16, "KeyW": 17, "KeyE": 18, "KeyR": 19, "KeyT": 20, "KeyY": 21,
+            "KeyU": 22, "KeyI": 23, "KeyO": 24, "KeyP": 25,
+            "KeyA": 30, "KeyS": 31, "KeyD": 32, "KeyF": 33, "KeyG": 34, "KeyH": 35,
+            "KeyJ": 36, "KeyK": 37, "KeyL": 38,
+            "KeyZ": 44, "KeyX": 45, "KeyC": 46, "KeyV": 47, "KeyB": 48, "KeyN": 49, "KeyM": 50,
+            "F1": 59, "F2": 60, "F3": 61, "F4": 62, "F5": 63, "F6": 64,
+            "F7": 65, "F8": 66, "F9": 67, "F10": 68, "F11": 87, "F12": 88
+        };
+
+        function addLog(prefix, msg) {
+            const box = document.getElementById("terminal-log");
+            if (!box) return;
+            const cursor = box.lastElementChild;
+            const row = document.createElement("div");
+            row.className = "flex gap-2";
+            row.innerHTML = `<span class="text-ide-text">[${prefix}]</span><span>${msg}</span>`;
+            if (cursor) box.insertBefore(row, cursor);
+            else box.appendChild(row);
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function switchTab(tab) {
+            for (const name of ["mods", "editor", "downloads", "settings", "about"]) {
+                const el = document.getElementById("tab-" + name);
+                const nav = document.getElementById("nav-" + name);
+                if (el) {
+                    if (name === tab) {
+                        el.classList.remove("hidden");
+                        el.classList.add("flex");
+                    } else {
+                        el.classList.add("hidden");
+                        el.classList.remove("flex");
+                    }
+                }
+                if (nav) {
+                    if (name === tab) {
+                        nav.className = "text-ide-text relative border-l-2 border-ide-text w-full flex justify-center py-1";
+                    } else {
+                        nav.className = "text-ide-muted hover:text-ide-text transition-colors relative w-full flex justify-center py-1";
+                    }
+                }
+            }
+            if (tab === "editor") {
+                loadRecentSuggestions();
+            }
+        }
+
+        function toggleDrawer(id) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.classList.toggle("hidden");
+            const open = !el.classList.contains("hidden");
+            const head = document.querySelector(`[data-drawer="${id}"]`);
+            if (head) head.classList.toggle("drawer-open", open);
+        }
+
+        // Whole-row click opens/closes the settings drawer. Clicks on interactive
+        // controls (toggles, buttons, selects, links, inputs) keep their own behavior.
+        document.addEventListener("click", (ev) => {
+            const head = ev.target.closest("[data-drawer]");
+            if (!head) return;
+            if (ev.target.closest("input, label, button, select, textarea, a")) return;
+            toggleDrawer(head.getAttribute("data-drawer"));
+        });
+
+        function filterMods(query) {
+            const q = (query || "").toLowerCase().trim();
+            document.querySelectorAll(".mod-row").forEach(row => {
+                const name = (row.getAttribute("data-name") || "").toLowerCase();
+                row.style.display = (!q || name.includes(q)) ? "" : "none";
+            });
+        }
+
+        function renderState(s) {
+            if (!s) return;
+            appState = { ...appState, ...s };
+            document.getElementById("workspace-path").textContent = appState.game_dir || "Seçilmedi (Lütfen GW2 klasörünü seçin)";
+
+            // Nexus status & banner
+            const nexusBanner = document.getElementById("nexus-missing-banner");
+            const nexusDot = document.getElementById("nexus-alert-dot");
+            if (!appState.nexus_installed) {
+                nexusBanner.classList.remove("hidden");
+                nexusDot.classList.remove("hidden");
+                document.getElementById("status-nexus").textContent = "Eksik!";
+            } else {
+                nexusBanner.classList.add("hidden");
+                nexusDot.classList.add("hidden");
+                document.getElementById("status-nexus").textContent = "Aktif";
+            }
+
+            document.getElementById("toggle-nexus").checked = !!appState.nexus_installed;
+            document.getElementById("toggle-tt").checked = !!appState.tt_installed;
+            document.getElementById("toggle-lt").checked = !!appState.lt_installed;
+            document.getElementById("toggle-font").checked = !!appState.font_injector;
+            document.getElementById("settings-toggle-font").checked = !!appState.font_injector;
+
+            // Font Injector Pill & Badges
+            const pill = document.getElementById("char-mode-pill");
+            const badgeFont = document.getElementById("badge-font-mode");
+            const settingsFontLbl = document.getElementById("settings-font-label");
+            if (appState.font_injector) {
+                pill.textContent = "FONT INJECTOR: AÇIK (Ş, Ğ, İ, ı)";
+                badgeFont.textContent = "TAM TÜRKÇE GLİF";
+                settingsFontLbl.textContent = "AÇIK (Tam Türkçe Glif)";
+            } else {
+                pill.textContent = "FONT INJECTOR: KAPALI (6 Harf: S, G, I, i)";
+                badgeFont.textContent = "6 HARF DÖNÜŞÜM (S,G,I,i)";
+                settingsFontLbl.textContent = "KAPALI (6 Harf İngilizce)";
+            }
+
+            // Keep Items English
+            document.getElementById("toggle-keep-items").checked = !!appState.keep_items_english;
+            document.getElementById("settings-toggle-items").checked = !!appState.keep_items_english;
+            document.getElementById("settings-items-label").textContent = appState.keep_items_english ? "AÇIK (İngilizce)" : "KAPALI (Çevir)";
+
+            // Backend
+            const backendMap = {
+                offline: "ÇEVRİMDIŞI OPUS-MT",
+                google: "BULUT: GOOGLE",
+                deepl: "BULUT: DEEPL",
+                gemini: "BULUT: GEMINI",
+                openai: "BULUT: OPENAI"
+            };
+            document.getElementById("badge-backend").textContent = backendMap[appState.backend] || "ÇEVRİMDIŞI OPUS-MT";
+            document.getElementById("select-backend-inline").value = appState.backend || "offline";
+            document.getElementById("settings-backend").value = appState.backend || "offline";
+            document.getElementById("settings-threads").value = String(appState.threads || 2);
+            document.getElementById("settings-api-key").value = appState.api_key || "";
+            document.getElementById("settings-model-name").value = appState.model_name || "";
+            document.getElementById("settings-author").value = appState.author || "Oyuncu";
+            document.getElementById("settings-show-keys").value = appState.show_keys || "off";
+
+            const cloudBox = document.getElementById("cloud-api-box");
+            if (["deepl", "gemini", "openai"].includes(appState.backend)) {
+                cloudBox.classList.remove("hidden");
+            } else {
+                cloudBox.classList.add("hidden");
+            }
+
+            // Keybind
+            const kbLabel = (appState.keybind && appState.keybind.label) ? appState.keybind.label : "ALT + T";
+            document.getElementById("keybind-label").textContent = kbLabel;
+            document.getElementById("keybind-drawer-label").textContent = kbLabel;
+            document.getElementById("settings-keybind-label").textContent = kbLabel;
+
+            // Downloads tab status
+            document.getElementById("dl-status-nexus").textContent = appState.nexus_installed ? "Kurulu (d3d11.dll)" : "Eksik";
+            document.getElementById("dl-status-model").textContent = appState.model_installed ? "Hazır (OPUS-MT CT2)" : "Kurulmaya Hazır";
+            document.getElementById("dl-status-glossary").textContent = appState.glossary_count ? `${appState.glossary_count} Terim Aktif` : "Hazır";
+            document.getElementById("dl-status-font").textContent = appState.font_injector ? "Aktif (53 Atlas)" : "Devre Dışı (6 Harf Modu)";
+            document.getElementById("ver-installed").textContent = appState.lt_installed ? "v0.12.0-TR" : "Kurulu Değil";
+        }
+
+        async function apiCall(method, ...args) {
+            if (window.pywebview && window.pywebview.api && window.pywebview.api[method]) {
+                return await window.pywebview.api[method](...args);
+            }
+            console.warn("pywebview API not connected:", method, args);
+            return null;
+        }
+
+        async function syncAll() {
+            const res = await apiCall("get_status");
+            if (res) {
+                renderState(res);
+                addLog("*", `Durum senkronize edildi (${res.game_dir || "Klasör seçilmedi"}).`);
+            }
+        }
+
+        async function browseGameDir() {
+            const res = await apiCall("browse_game_dir");
+            if (res && res.ok) {
+                renderState(res.status);
+                addLog("+", `GW2 çalışma alanı güncellendi: ${res.status.game_dir}`);
+            }
+        }
+
+        async function installAll() {
+            const btn = document.getElementById("btn-install-all-label");
+            btn.textContent = "KURULUYOR...";
+            addLog("*", "Kurulum ve yapılandırma başlatıldı...");
+            const res = await apiCall("install_all");
+            btn.textContent = "TÜMÜNÜ KUR / GÜNCELLE";
+            if (res) {
+                if (res.logs) res.logs.forEach(l => addLog("+", l));
+                if (res.status) renderState(res.status);
+            }
+        }
+
+        async function installNexus() {
+            addLog("*", "Raidcore Nexus (d3d11.dll) kuruluyor...");
+            const res = await apiCall("install_nexus");
+            if (res) {
+                addLog(res.ok ? "+" : "!", res.message);
+                if (res.status) renderState(res.status);
+            }
+        }
+
+        async function openNexusWebsite() {
+            await apiCall("open_url", "https://raidcore.gg/Nexus");
+            addLog("*", "Raidcore Nexus resmi sayfası açıldı (https://raidcore.gg/Nexus).");
+        }
+
+        async function openExternal(url) {
+            const res = await apiCall("open_url", url);
+            if (!res) window.open(url, "_blank");
+        }
+
+        async function launchGame() {
+            const res = await apiCall("launch_game");
+            if (res) addLog(res.ok ? "+" : "!", res.message);
+        }
+
+        async function onToggleMod(modId, enabled) {
+            const res = await apiCall("toggle_mod", modId, enabled);
+            if (res) {
+                addLog(enabled ? "+" : "-", res.message);
+                if (res.status) renderState(res.status);
+            }
+        }
+
+        async function onToggleFontInjector(enabled) {
+            addLog("*", enabled
+                ? "Turkish Font Injector açılıyor -> Önbellekteki (cache.db) metinler tam Türkçe karakterlere (Ş, Ğ, İ, ı) döndürülüyor..."
+                : "Turkish Font Injector kapatılıyor -> Yalnızca kutucuk çıkaran 6 harf (ş->s, Ş->S, ğ->g, Ğ->G, İ->I, ı->i) dönüştürülüyor...");
+            const res = await apiCall("set_font_injector", enabled);
+            if (res) {
+                addLog(enabled ? "+" : "*", res.message);
+                if (res.status) renderState(res.status);
+            }
+        }
+
+        async function onToggleKeepItems(enabled) {
+            const res = await apiCall("set_keep_items_english", enabled);
+            if (res) {
+                addLog("*", res.message);
+                if (res.status) renderState(res.status);
+            }
+        }
+
+        async function onChangeBackend(backend) {
+            appState.backend = backend;
+            renderState(appState);
+            const res = await apiCall("set_backend", backend);
+            if (res) {
+                addLog("*", res.message);
+                if (res.status) renderState(res.status);
+            }
+        }
+
+        async function saveAllSettings() {
+            const payload = {
+                font_injector: document.getElementById("settings-toggle-font").checked,
+                keep_items_english: document.getElementById("settings-toggle-items").checked,
+                backend: document.getElementById("settings-backend").value,
+                threads: parseInt(document.getElementById("settings-threads").value || "2", 10),
+                api_key: document.getElementById("settings-api-key").value.trim(),
+                model_name: document.getElementById("settings-model-name").value.trim(),
+                author: document.getElementById("settings-author").value.trim() || "Oyuncu",
+                show_keys: document.getElementById("settings-show-keys").value
+            };
+            const res = await apiCall("save_settings", payload);
+            if (res) {
+                addLog("+", res.message);
+                if (res.status) renderState(res.status);
+            }
+        }
+
+        async function syncCharacterModeNow() {
+            const res = await apiCall("sync_cache_characters");
+            if (res) addLog("+", res.message);
+        }
+
+        // Keybind Capture Logic
+        function startKeybindCapture() {
+            capturingKeybind = true;
+            document.getElementById("keybind-modal").classList.remove("hidden");
+            document.getElementById("keybind-preview").textContent = "Tuş kombinasyonuna basın...";
+        }
+
+        function stopKeybindCapture() {
+            capturingKeybind = false;
+            document.getElementById("keybind-modal").classList.add("hidden");
+        }
+
+        async function resetDefaultKeybind() {
+            const kb = { alt: true, ctrl: false, shift: false, key: "T", scancode: 20 };
+            const res = await apiCall("set_keybind", kb);
+            if (res) {
+                addLog("+", res.message);
+                if (res.status) renderState(res.status);
+            }
+        }
+
+        window.addEventListener("keydown", async (e) => {
+            if (!capturingKeybind) return;
+            e.preventDefault();
+            e.stopPropagation();
+
+            if (e.code === "Escape") {
+                stopKeybindCapture();
+                return;
+            }
+            if (["ControlLeft", "ControlRight", "AltLeft", "AltRight", "ShiftLeft", "ShiftRight", "MetaLeft", "MetaRight"].includes(e.code)) {
+                const parts = [];
+                if (e.ctrlKey) parts.push("CTRL");
+                if (e.altKey) parts.push("ALT");
+                if (e.shiftKey) parts.push("SHIFT");
+                document.getElementById("keybind-preview").textContent = parts.join(" + ") + " + ...";
+                return;
+            }
+
+            const scancode = KEY_TO_SCANCODE[e.code];
+            if (!scancode) {
+                document.getElementById("keybind-preview").textContent = `Desteklenmeyen tuş (${e.code}). Harf, rakam veya F1-F12 seçin.`;
+                return;
+            }
+
+            const keyName = e.code.replace("Key", "").replace("Digit", "");
+            const kb = {
+                alt: !!e.altKey,
+                ctrl: !!e.ctrlKey,
+                shift: !!e.shiftKey,
+                key: keyName,
+                scancode: scancode
+            };
+            stopKeybindCapture();
+            const res = await apiCall("set_keybind", kb);
+            if (res) {
+                addLog("+", res.message);
+                if (res.status) renderState(res.status);
+            }
+        });
+
+        // Translation Editor Functions (Tab 2)
+        async function searchEditor(ev) {
+            if (ev) ev.preventDefault();
+            const q = document.getElementById("editor-query").value.trim();
+            const exact = document.getElementById("editor-exact").checked;
+            if (!q) return;
+            const box = document.getElementById("editor-results");
+            box.innerHTML = `<div class="text-xs font-mono text-ide-muted py-4 text-center">Aranıyor...</div>`;
+            const res = await apiCall("editor_search", q, exact);
+            if (!res || !res.rows || res.rows.length === 0) {
+                box.innerHTML = `<div class="text-xs font-mono text-ide-muted py-4 text-center">Sonuç bulunamadı.</div>`;
+                return;
+            }
+            document.getElementById("editor-mode-badge").textContent = res.live
+                ? "CANLI MOD (Oyun Açık - Anında Yansır)"
+                : "ÇEVRİMDIŞI VERİTABANI MODU (map_tr.db + cache.db)";
+            box.innerHTML = "";
+            res.rows.forEach(r => box.appendChild(buildEditorCard(r)));
+        }
+
+        function buildEditorCard(r, statusNote = "") {
+            const card = document.createElement("div");
+            card.className = "bg-ide-bg border border-ide-border rounded-sm p-3.5 flex flex-col gap-2";
+
+            const currentVal = (r.suggestion && r.suggestion.valid ? r.suggestion.text : null)
+                ?? (r.patch ? r.patch.text : null)
+                ?? r.shown
+                ?? "";
+
+            const head = document.createElement("div");
+            head.className = "flex flex-wrap items-center justify-between gap-2 text-xs font-mono";
+            head.innerHTML = `
+                <div class="flex items-center gap-2">
+                    <span class="text-ide-text font-semibold">#${r.key}</span>
+                    <span class="px-1.5 py-0.5 text-[10px] bg-ide-panel border border-ide-border text-ide-muted rounded-sm">
+                        ${r.patch ? "yama: " + r.patch.kind : "modül / önbellek"}
+                    </span>
+                    ${r.suggestion && r.suggestion.valid
+                        ? `<span class="px-1.5 py-0.5 text-[10px] bg-ide-hover border border-ide-border text-ide-text rounded-sm">${r.suggestion.author} düzenlemesi</span>`
+                        : ""}
+                </div>
+                <span class="text-[11px] text-ide-text">${statusNote}</span>
+            `;
+            card.appendChild(head);
+
+            if (r.en) {
+                const enBox = document.createElement("div");
+                enBox.className = "text-xs font-mono text-ide-muted bg-ide-panel px-2.5 py-1.5 border-l-2 border-ide-border whitespace-pre-wrap selectable";
+                enBox.textContent = r.en;
+                card.appendChild(enBox);
+            }
+
+            const ta = document.createElement("textarea");
+            ta.className = "w-full min-h-[60px] bg-ide-panel border border-ide-border rounded-sm p-2 text-xs font-sans text-ide-text focus:outline-none focus:border-ide-text resize-y";
+            ta.value = currentVal;
+            card.appendChild(ta);
+
+            const actions = document.createElement("div");
+            actions.className = "flex items-center gap-2";
+
+            const saveBtn = document.createElement("button");
+            saveBtn.type = "button";
+            saveBtn.className = "px-3 py-1 text-xs font-mono bg-ide-text text-ide-bg font-medium rounded-sm hover:opacity-90";
+            saveBtn.textContent = "Kaydet";
+            saveBtn.onclick = async () => {
+                saveBtn.disabled = true;
+                const saved = await apiCall("editor_save", r.key, ta.value);
+                if (saved && saved.ok) {
+                    card.replaceWith(buildEditorCard(saved.row, "✓ Kaydedildi"));
+                    loadRecentSuggestions();
+                    addLog("+", `Çeviri düzenlendi (#${r.key}).`);
+                } else {
+                    saveBtn.disabled = false;
+                    alert((saved && saved.error) || "Kaydetme hatası");
+                }
+            };
+
+            const undoBtn = document.createElement("button");
+            undoBtn.type = "button";
+            undoBtn.className = "px-3 py-1 text-xs font-mono bg-ide-panel border border-ide-border text-ide-muted hover:text-ide-text rounded-sm disabled:opacity-40";
+            undoBtn.textContent = `Geri Al (${r.undo || 0})`;
+            undoBtn.disabled = !r.undo;
+            undoBtn.onclick = async () => {
+                undoBtn.disabled = true;
+                const undone = await apiCall("editor_undo", r.key);
+                if (undone && undone.ok) {
+                    card.replaceWith(buildEditorCard(undone.row, "↺ Geri alındı"));
+                    loadRecentSuggestions();
+                    addLog("*", `Çeviri düzenlemesi geri alındı (#${r.key}).`);
+                } else {
+                    undoBtn.disabled = false;
+                }
+            };
+
+            actions.append(saveBtn, undoBtn);
+            card.appendChild(actions);
+            return card;
+        }
+
+        async function loadRecentSuggestions() {
+            const box = document.getElementById("editor-recent");
+            if (!box) return;
+            const res = await apiCall("editor_recent");
+            if (!res || !res.rows || res.rows.length === 0) {
+                box.innerHTML = `<div class="text-xs font-mono text-ide-muted col-span-2">Henüz kayıtlı özel düzenleme yok.</div>`;
+                return;
+            }
+            box.innerHTML = "";
+            res.rows.slice(0, 10).forEach(r => {
+                const item = document.createElement("div");
+                item.className = "bg-ide-bg border border-ide-border hover:bg-ide-hover/60 p-2.5 rounded-sm cursor-pointer flex flex-col gap-1";
+                item.onclick = () => {
+                    document.getElementById("editor-query").value = String(r.key);
+                    searchEditor();
+                };
+                item.innerHTML = `
+                    <div class="flex justify-between text-[11px] font-mono text-ide-muted">
+                        <span class="text-ide-text font-semibold">#${r.key}</span>
+                        <span>${r.author}</span>
+                    </div>
+                    <div class="text-xs text-ide-text truncate">${r.text}</div>
+                `;
+                box.appendChild(item);
+            });
+        }
+
+        async function openBrowserEditor() {
+            await apiCall("open_url", "http://127.0.0.1:8770");
+        }
+
+        window.addEventListener("pywebviewready", () => {
+            syncAll();
+        });
+    </script>
+</body>
+</html>
+

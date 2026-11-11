@@ -1,2 +1,5 @@
-ctranslate2>=4.0
-sentencepiece>=0.2
+ctranslate2>=4.0.0
+sentencepiece>=0.1.99
+pywebview>=5.0.0
+pyinstaller>=6.0.0
+

@@ -1,20 +1,13 @@
-"""Local Translator: the correction page of the contributors (http://suggestions.localhost:8770).
+"""Local Translator TR: Canlı Çeviri Düzenleyici (http://127.0.0.1:8770).
 
-Only for contributors: the page is on when IT\\contributor.json exists, with the name the
-suggestions are signed with, and optionally the "show keys" mode (string IDs in the game, instead
-of the file IT\\show_keys.txt; see contributor()):
+TR\\contributor.json dosyası varsa ordaki yazar adını kullanır, yoksa varsayılan olarak
+"Oyuncu" adıyla aktif olur:
 
-    {"author": "Ralkeon", "show_keys": "text"}
+    {"author": "Oyuncu", "show_keys": false}
 
-Search a text as seen in the game (Italian, English when the module knows it, or the string ID),
-write the translation and save: it becomes a suggestion, a new row of the table suggestions of
-map_it.db (lt_server.SUGGESTIONS_SCHEMA), and is sent to the game at once. The map, suggestions
-included, is what contributors send to the author, who reviews them for the patch. A suggestion
-counts until the patch entry of its key changes after it; "Annulla" deletes the last suggestion of
-the key and the game goes back to the one before, the patch, or the translation of the module.
-
-The server listens on 127.0.0.1 only, accepts only requests addressed to that host, localhost or
-suggestions.localhost (no DNS rebinding) and saves only same-origin JSON requests (no other site can post to it).
+Oyunda gördüğünüz metni (Türkçe, İngilizce veya String ID olarak) arayın, çeviriyi düzenleyin ve
+kaydedin: map_tr.db içindeki suggestions tablosuna kaydedilir ve oyun açıksa 1-2 saniye içinde
+canlı olarak oyuna gönderilir. "Geri Al" son düzenlemeyi siler ve bir önceki çeviriye döner.
 """
 from __future__ import annotations
 
@@ -35,21 +28,19 @@ from patch_db import KIND_AUTO, KIND_DROP, KIND_REVIEWED, CachePatch, untagged
 log = logging.getLogger("lt")
 
 EDITOR_PORT = 8770
-# browsers send every *.localhost name to 127.0.0.1 by themselves (RFC 6761): no hosts file
 EDITOR_HOST = "suggestions.localhost"
-CONTRIBUTOR_FILE = "contributor.json"  # in IT\: turns the page on, {"author": "<name>"}
-RESULTS = 50          # rows per search
-MAX_BYTES = 65535     # longest text the addon accepts (UTF-8 bytes)
+CONTRIBUTOR_FILE = "contributor.json"
+RESULTS = 50
+MAX_BYTES = 65535
 KINDS = {KIND_REVIEWED: "reviewed", KIND_AUTO: "automatic", KIND_DROP: "drop"}
 
-# markup the game does not show: plural/feminine forms, colors, line breaks, escaped brackets
 MARKUP = [(re.compile(r'\[(?:pl|f):"[^"]*"\]'), ""), (re.compile(r"</?c(?:=[^>]*)?/?>"), ""),
           (re.compile(r"<br>"), " "), (re.compile(r"\[lbracket\]"), "["),
           (re.compile(r"\[rbracket\]"), "]"), (re.compile(r"\s+"), " ")]
 
 
 def plain(text: str) -> str:
-    """A text as the game shows it, more or less: for searching."""
+    """Metni oyunda göründüğü düz haliyle döndürür (arama için)."""
     for pattern, repl in MARKUP:
         text = pattern.sub(repl, text)
     return text.strip()
@@ -58,8 +49,6 @@ def plain(text: str) -> str:
 @dataclass(frozen=True)
 class Contributor:
     author: str
-    # "show keys" mode (patch_db.key_tag): "text", "all", None = off; NOT_SET: the file
-    # IT\show_keys.txt decides, as for everybody
     show_keys: str | None | object
 
 
@@ -67,25 +56,26 @@ NOT_SET = object()
 
 
 def contributor(lang_dir: Path) -> Contributor | None:
-    """The settings of IT\\contributor.json, None without the file (not a contributor):
-
-        {"author": "Ralkeon", "show_keys": "text"}
-
-    show_keys (optional): "text" (string IDs before the texts with words), "all" (every text,
-    templates too), false (off); true = "text"."""
+    """TR\\contributor.json ayarlarını okur; dosya yoksa varsayılan 'Oyuncu' profilini oluşturur."""
     path = lang_dir / CONTRIBUTOR_FILE
+    if not path.is_file():
+        try:
+            lang_dir.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps({"author": "Oyuncu", "show_keys": False},
+                                       ensure_ascii=False, indent=2), encoding="utf-8")
+        except OSError:
+            return Contributor("Oyuncu", NOT_SET)
     try:
         data = json.loads(path.read_text(encoding="utf-8-sig"))
     except FileNotFoundError:
-        return None
+        return Contributor("Oyuncu", NOT_SET)
     except (OSError, ValueError) as exc:
         log.warning("%s unreadable: %s", path.name, exc)
-        return None
+        return Contributor("Oyuncu", NOT_SET)
     author = data.get("author") if isinstance(data, dict) else None
     if not isinstance(author, str) or not author.strip():
-        log.warning("%s: no \"author\"", path.name)
-        return None
-    mode = data.get("show_keys", NOT_SET)
+        author = "Oyuncu"
+    mode = data.get("show_keys", NOT_SET) if isinstance(data, dict) else NOT_SET
     if mode is True:
         mode = "text"
     elif mode in (False, None, "off"):
@@ -101,7 +91,7 @@ class Editor:
                  author: str) -> None:
         self.patch, self.keymap, self.cache_db, self.cache_key = patch, keymap, cache_db, cache_key
         self.author = author
-        self.lock = threading.Lock()  # one save or undo at a time
+        self.lock = threading.Lock()
 
     def _cache(self) -> sqlite3.Connection:
         return sqlite3.connect(f"file:{self.cache_db}?mode=ro", uri=True, timeout=10)
@@ -121,8 +111,7 @@ class Editor:
         return (untagged(key, r[0]) if r[0] is not None else None), r[1]
 
     def search(self, q: str, exact: bool = False) -> list[dict]:
-        """Texts containing `q` (Italian as in cache.db, or English); with `exact`, only the texts
-        that are `q` and nothing else (same letters and case). Digits only: that string ID."""
+        """Metinleri Türkçe (cache.db / map_tr.db), İngilizce veya String ID ile arar."""
         q = q.strip()
         if not q:
             return []
@@ -131,26 +120,35 @@ class Editor:
             keys = [int(q)]
         else:
             if self.cache_db.is_file():
-                # compared as the game shows them: without markup and "show keys" prefix
                 if exact:
                     def match(t: str) -> bool:
                         return t == q
                 else:
-                    folded = q.casefold()
+                    folded = lt.tr_lower(q)
+                    folded_ascii = lt.fix_turkish_chars(folded, "ascii_6")
 
                     def match(t: str) -> bool:
-                        return folded in t.casefold()
-                con = self._cache()
+                        tl = lt.tr_lower(t)
+                        return folded in tl or folded_ascii in lt.fix_turkish_chars(tl, "ascii_6")
                 try:
-                    for k, t in con.execute("SELECT id, text FROM translations WHERE cache_key = ? "
-                                            "AND text IS NOT NULL", (self.cache_key,)):
-                        if match(plain(untagged(k, t))):
-                            keys.append(k)
-                            if len(keys) >= RESULTS:
-                                break
-                finally:
-                    con.close()
-            keys += [k for k in self.keymap.search_english(q, RESULTS, exact) if k not in keys]
+                    con = self._cache()
+                    try:
+                        for k, t in con.execute("SELECT id, text FROM translations WHERE cache_key = ? "
+                                                "AND text IS NOT NULL", (self.cache_key,)):
+                            if match(plain(untagged(k, t))):
+                                keys.append(k)
+                                if len(keys) >= RESULTS:
+                                    break
+                    finally:
+                        con.close()
+                except sqlite3.Error:
+                    pass
+            if len(keys) < RESULTS:
+                for k in self.keymap.search_english(q, RESULTS, exact):
+                    if k not in keys:
+                        keys.append(k)
+                        if len(keys) >= RESULTS:
+                            break
         return [self.row(k) for k in keys[:RESULTS]]
 
     def row(self, key: int) -> dict:
@@ -159,11 +157,10 @@ class Editor:
         patch = ({"kind": KINDS.get(entry[0]), "text": entry[1], "version": entry[2]}
                  if entry else None)
         mrow = self.keymap.get(key)
-        history = self.keymap.suggestions(key)  # last first
+        history = self.keymap.suggestions(key)
         active = self.patch.valid_suggestion(key, h)
         last = history[0] if history else None
         en = (mrow[0] if mrow else "") or (last.en_source if last else "")
-        # what "Annulla" goes back to: the suggestion before, the patch, the module's translation
         prev = None
         if history:
             before = history[1] if len(history) > 1 else None
@@ -185,13 +182,13 @@ class Editor:
 
     def save(self, key: int, text: str) -> dict:
         if not text.strip():
-            raise ValueError("empty text")
+            raise ValueError("Metin boş olamaz")
         if len(text.encode("utf-8")) > MAX_BYTES:
-            raise ValueError("text too long")
+            raise ValueError("Metin çok uzun")
         with self.lock:
             shown, h = self._shown(key)
             mrow = self.keymap.get(key)
-            if shown is None:  # the game does not hold it: what it would show
+            if shown is None:
                 entry = self.patch.entry_version(key)
                 shown = entry[1] if entry and entry[0] != KIND_DROP else (mrow[1] if mrow else None)
             self.keymap.add_suggestion(key, mrow[0] if mrow else "", shown, text, self.author,
@@ -202,11 +199,10 @@ class Editor:
         return self.row(key)
 
     def undo(self, key: int) -> dict:
-        """Delete the last suggestion of the key; the game goes back to the one before, the
-        patch, or the translation of the module (the map's text)."""
+        """Son öneriyi siler; oyun bir önceki öneriye, yamaya veya modül çevirisine döner."""
         with self.lock:
             if not self.keymap.remove_last_suggestion(key):
-                raise ValueError("nothing to undo")
+                raise ValueError("Geri alınacak düzenleme yok")
             sent = self.patch.apply(self.cache_db, {key})
             shown, h = self._shown(key)
             entry = self.patch.entry_version(key)
@@ -216,7 +212,7 @@ class Editor:
                 if mrow and mrow[1] and mrow[1] != shown:
                     sent = self.patch.send_text(key, h or 0, mrow[1])
                 elif not mrow or not mrow[1]:
-                    self._forget_in_cache(key)  # the addon asks again at the next start
+                    self._forget_in_cache(key)
         log.info("editor: suggestion for key %d undone", key)
         return self.row(key)
 
@@ -237,9 +233,9 @@ def _handler(editor: Editor, port: int) -> type[BaseHTTPRequestHandler]:
     origins = {f"http://{h}" for h in hosts}
 
     class Handler(BaseHTTPRequestHandler):
-        server_version = "LocalTranslator"
+        server_version = "LocalTranslatorTR"
 
-        def log_message(self, fmt, *args) -> None:  # noqa: D102 - quiet: the module has its log
+        def log_message(self, fmt, *args) -> None:
             log.debug("editor: " + fmt, *args)
 
         def _send(self, status: int, body: bytes, ctype: str) -> None:
@@ -287,7 +283,8 @@ def _handler(editor: Editor, port: int) -> type[BaseHTTPRequestHandler]:
         def do_POST(self) -> None:  # noqa: N802
             if not self._host_ok():
                 return
-            if self.headers.get("Origin") not in origins or not self.headers.get(
+            origin = self.headers.get("Origin")
+            if (origin is not None and origin not in origins) or not self.headers.get(
                     "Content-Type", "").startswith("application/json"):
                 self._json({"error": "forbidden"}, HTTPStatus.FORBIDDEN)
                 return
@@ -322,7 +319,7 @@ def _html(text: str) -> str:
 
 
 def start(editor: Editor, port: int = EDITOR_PORT) -> ThreadingHTTPServer | None:
-    """Serve the page in a thread; None (logged) if the port is taken."""
+    """Arka planda canlı düzenleyici sunucusunu başlatır."""
     try:
         server = ThreadingHTTPServer(("127.0.0.1", port), _handler(editor, port))
     except OSError as exc:
@@ -330,83 +327,83 @@ def start(editor: Editor, port: int = EDITOR_PORT) -> ThreadingHTTPServer | None
         return None
     server.daemon_threads = True
     threading.Thread(target=server.serve_forever, daemon=True, name="editor").start()
-    log.info("editor page: http://%s:%d", EDITOR_HOST, port)
+    log.info("editor page: http://127.0.0.1:%d (http://%s:%d)", port, EDITOR_HOST, port)
     return server
 
 
 PAGE = r"""<!doctype html>
-<html lang="it">
+<html lang="tr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Suggestion traduzione</title>
+<title>GW2 TR - Canlı Çeviri Düzenleyici</title>
 <style>
 :root {
-  --bg: #f6f7f9; --panel: #ffffff; --text: #1d2229; --muted: #646d78; --line: #dde1e6;
-  --accent: #2f6fdb; --accent-text: #ffffff; --ok: #1e7f4f; --err: #b3261e;
-  --badge-rev: #e3f1e8; --badge-auto: #eef0f3; --badge-sugg: #e6eefc; --badge-old: #fbeee0;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #15181c; --panel: #1e2227; --text: #e6e9ed; --muted: #9aa3ad; --line: #30363d;
-    --accent: #5b8ff0; --accent-text: #0d1117; --ok: #5cc28c; --err: #f08b84;
-    --badge-rev: #1f3a2b; --badge-auto: #2a2f36; --badge-sugg: #1f2f4d; --badge-old: #3d2e1c;
-  }
+  --bg: #181818; --main: #1e1e1e; --panel: #252526; --text: #cccccc; --muted: #858585;
+  --line: #333333; --hover: #37373d; --accent: #cccccc; --accent-text: #181818;
+  --ok: #73c991; --err: #f48771;
+  --badge-rev: #1f3a2b; --badge-auto: #2a2f36; --badge-sugg: #2d3748; --badge-old: #3d2e1c;
 }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--text);
-       font: 15px/1.45 system-ui, "Segoe UI", sans-serif; }
-main { max-width: 900px; margin: 0 auto; padding: 20px 16px 40px; }
-h1 { font-size: 20px; margin: 0 0 4px; }
-.sub { color: var(--muted); margin: 0 0 16px; font-size: 13px; }
+body { margin: 0; background: var(--main); color: var(--text);
+       font: 13px/1.5 Inter, system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 920px; margin: 0 auto; padding: 24px 16px 48px; }
+h1 { font-size: 16px; font-weight: 500; color: #ffffff; margin: 0 0 4px; letter-spacing: -0.01em; }
+.sub { color: var(--muted); margin: 0 0 16px; font-size: 12px; }
 form.search { display: flex; gap: 8px; margin-bottom: 8px; }
-label.opt { display: block; margin: 0 0 16px; font-size: 14px; cursor: pointer; }
+label.opt { display: block; margin: 0 0 16px; font-size: 12px; color: var(--text); cursor: pointer; }
 label.opt input { margin: 0 6px 0 0; vertical-align: -2px; }
-.hint { color: var(--muted); font-size: 12px; }
-input[type=search] { flex: 1; min-width: 0; padding: 9px 12px; font: inherit; color: var(--text);
-  background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
-button { padding: 8px 14px; font: inherit; border-radius: 8px; border: 1px solid var(--accent);
-  background: var(--accent); color: var(--accent-text); cursor: pointer; }
-button.ghost { background: transparent; color: var(--accent); }
-button:disabled { opacity: .5; cursor: default; }
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+.hint { color: var(--muted); font-size: 11px; }
+input[type=search] { flex: 1; min-width: 0; padding: 8px 12px; font: inherit; color: var(--text);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 2px; outline: none; }
+input[type=search]:focus, textarea:focus { border-color: var(--muted); }
+button { padding: 7px 14px; font: 500 12px/1.2 inherit; border-radius: 2px; border: 1px solid var(--accent);
+  background: var(--accent); color: var(--accent-text); cursor: pointer; transition: opacity .15s; }
+button.ghost { background: var(--panel); color: var(--text); border-color: var(--line); }
+button.ghost:hover:not(:disabled) { background: var(--hover); }
+button:disabled { opacity: .45; cursor: default; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 2px;
         padding: 12px 14px; margin-bottom: 10px; }
 .head { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin-bottom: 6px;
-        font-size: 13px; color: var(--muted); }
-.key { font-family: ui-monospace, Consolas, monospace; color: var(--text); }
-.badge { padding: 1px 8px; border-radius: 999px; font-size: 12px; color: var(--text); }
+        font-size: 12px; color: var(--muted); }
+.key { font-family: "Roboto Mono", ui-monospace, Consolas, monospace; color: #ffffff; font-weight: 500; }
+.badge { padding: 1px 7px; border-radius: 2px; font-size: 11px; color: var(--text); border: 1px solid var(--line); }
 .b-reviewed { background: var(--badge-rev); } .b-automatic, .b-none { background: var(--badge-auto); }
 .b-sugg { background: var(--badge-sugg); } .b-old { background: var(--badge-old); }
-.en { color: var(--muted); font-size: 13px; margin: 0 0 6px; white-space: pre-wrap; }
-.note { font-size: 13px; margin: 6px 0 0; white-space: pre-wrap; }
+.en { color: var(--muted); font-size: 12px; margin: 0 0 8px; white-space: pre-wrap;
+      font-family: "Roboto Mono", ui-monospace, Consolas, monospace; background: var(--bg);
+      padding: 6px 8px; border-left: 2px solid var(--line); }
+.note { font-size: 12px; margin: 6px 0 0; white-space: pre-wrap; }
 .note-label { color: var(--muted); }
-textarea { width: 100%; min-height: 64px; padding: 8px 10px; font: inherit; color: var(--text);
-  background: var(--bg); border: 1px solid var(--line); border-radius: 8px; resize: vertical; }
-.actions { display: flex; gap: 10px; align-items: center; margin-top: 8px; }
-.status { font-size: 13px; } .status.ok { color: var(--ok); } .status.err { color: var(--err); }
-.empty { color: var(--muted); padding: 8px 2px; }
-h2 { font-size: 15px; margin: 28px 0 8px; }
+textarea { width: 100%; min-height: 64px; padding: 8px 10px; font: inherit; color: #ffffff;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 2px; resize: vertical; outline: none; }
+.actions { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+.status { font-size: 12px; } .status.ok { color: var(--ok); } .status.err { color: var(--err); }
+.empty { color: var(--muted); padding: 8px 2px; font-size: 12px; }
+h2 { font-size: 13px; font-weight: 500; color: var(--muted); text-transform: uppercase;
+     letter-spacing: 0.06em; margin: 28px 0 10px; }
 .recent .card { padding: 8px 12px; cursor: pointer; }
-.recent .it { white-space: pre-wrap; }
+.recent .card:hover { background: var(--hover); }
+.recent .it { white-space: pre-wrap; color: var(--text); }
 </style>
 </head>
 <body>
 <main>
-  <h1>Suggestion traduzione</h1>
-  <p class="sub">Contributor: <b>{{AUTHOR}}</b>. Cerca il testo come lo vedi in gioco (o in inglese, o l'ID della stringa), scrivi la traduzione e salva: in gioco cambia in un paio di secondi, e la suggestion va a Nike con la tua map.</p>
+  <h1>GW2 TR — Canlı Çeviri Düzenleyici</h1>
+  <p class="sub">Profil: <b>{{AUTHOR}}</b>. Oyunda gördüğünüz metni (Türkçe, İngilizce veya String ID olarak) arayın, çeviriyi düzenleyip kaydedin: oyun açıksa birkaç saniye içinde anında güncellenir.</p>
   <form class="search" id="f">
-    <input type="search" id="q" placeholder="Es. Utilizza l'attacco, oppure 37952" autofocus>
-    <button type="submit">Cerca</button>
+    <input type="search" id="q" placeholder="Örn. Saldırı, Waypoint veya 37952" autofocus>
+    <button type="submit">Ara</button>
   </form>
-  <label class="opt"><input type="checkbox" id="exact"> Cerca la stringa esatta
-    <span class="hint">(solo i testi che sono esattamente questo, maiuscole comprese)</span></label>
+  <label class="opt"><input type="checkbox" id="exact"> Tam eşleşme ara
+    <span class="hint">(yalnızca büyük/küçük harf dahil birebir aynı olan metinler)</span></label>
   <div id="results"></div>
-  <h2>Ultime suggestion</h2>
+  <h2>Son Düzenlemeler</h2>
   <div class="recent" id="recent"></div>
 </main>
 <script>
 const $ = (s) => document.querySelector(s);
-const KIND = { reviewed: "revisionata", automatic: "automatica", drop: "rimossa" };
+const KIND = { reviewed: "incelenmiş", automatic: "otomatik", drop: "silinmiş" };
 
 function el(tag, attrs, ...kids) {
   const e = document.createElement(tag);
@@ -418,9 +415,9 @@ function el(tag, attrs, ...kids) {
 }
 
 function prevLabel(p) {
-  if (p.what === "suggestion") return "suggestion di " + p.author;
-  if (p.what === "module") return "traduzione del modulo";
-  return "patch, " + KIND[p.what];
+  if (p.what === "suggestion") return p.author + " önerisi";
+  if (p.what === "module") return "modül çevirisi";
+  return "yama, " + KIND[p.what];
 }
 
 function card(r, note) {
@@ -428,9 +425,9 @@ function card(r, note) {
   const ta = el("textarea", {});
   ta.value = (s && s.valid ? s.text : null) ?? (r.patch ? r.patch.text : null) ?? r.shown ?? "";
   const status = el("span", { class: "status" + (note ? " ok" : "") }, note || "");
-  const btn = el("button", { type: "button" }, "Salva");
+  const btn = el("button", { type: "button" }, "Kaydet");
   const undo = el("button", { type: "button", class: "ghost",
-    title: r.undo ? "Elimina l'ultima suggestion (" + r.undo + " in tutto)" : "Nessuna suggestion da annullare" }, "Annulla");
+    title: r.undo ? "Son düzenlemeyi geri al (toplam " + r.undo + ")" : "Geri alınacak düzenleme yok" }, "Geri Al");
   undo.disabled = !r.undo;
   const self = el("div", { class: "card" });
   const post = async (url, body, busy, done) => {
@@ -443,41 +440,41 @@ function card(r, note) {
       self.replaceWith(card(data, done));
       loadRecent();
     } catch (e) {
-      status.className = "status err"; status.textContent = "Errore: " + e.message;
+      status.className = "status err"; status.textContent = "Hata: " + e.message;
       btn.disabled = false; undo.disabled = !r.undo;
     }
   };
-  btn.onclick = () => post("/api/save", { key: r.key, text: ta.value }, "Salvataggio…", "Salvata, inviata al gioco");
-  undo.onclick = () => post("/api/undo", { key: r.key }, "Annullamento…", "Annullata, ripristinato il testo precedente");
+  btn.onclick = () => post("/api/save", { key: r.key, text: ta.value }, "Kaydediliyor…", "Kaydedildi ve oyuna gönderildi");
+  undo.onclick = () => post("/api/undo", { key: r.key }, "Geri alınıyor…", "Geri alındı, önceki metin yüklendi");
   const badges = [];
   const kind = r.patch ? r.patch.kind : null;
   badges.push(el("span", { class: "badge b-" + (kind || "none") },
-    kind ? "patch: " + KIND[kind] : "non nella patch"));
-  if (s && s.valid) badges.push(el("span", { class: "badge b-sugg" }, "suggestion di " + s.author));
-  else if (s) badges.push(el("span", { class: "badge b-old", title: "La patch è cambiata dopo la suggestion, o l'inglese è cambiato: in gioco vale la patch" }, "suggestion superata"));
+    kind ? "yama: " + KIND[kind] : "yamada yok"));
+  if (s && s.valid) badges.push(el("span", { class: "badge b-sugg" }, s.author + " düzenlemesi"));
+  else if (s) badges.push(el("span", { class: "badge b-old", title: "Yama veya İngilizce metin değiştiği için geçersiz" }, "eski düzenleme"));
   self.append(...[
     el("div", { class: "head" }, el("span", { class: "key" }, "#" + r.key), ...badges),
     r.en ? el("p", { class: "en" }, r.en) : null,
     ta,
     s && !s.valid ? el("p", { class: "note" },
-      el("span", { class: "note-label" }, "Suggestion superata di " + s.author + ": "), s.text) : null,
+      el("span", { class: "note-label" }, s.author + " tarafından eski düzenleme: "), s.text) : null,
     r.prev ? el("p", { class: "note" },
-      el("span", { class: "note-label" }, "Con Annulla torna (" + prevLabel(r.prev) + "): "),
-      r.prev.text ?? "(nessun testo: lo ritraduce il modulo al prossimo avvio)") : null,
+      el("span", { class: "note-label" }, "Geri Al ile döneceği metin (" + prevLabel(r.prev) + "): "),
+      r.prev.text ?? "(metin yok: sonraki açılışta modül tekrar çevirir)") : null,
     el("div", { class: "actions" }, btn, undo, status)].filter((c) => c != null));
   return self;
 }
 
 async function search(q) {
   const box = $("#results");
-  box.replaceChildren(el("p", { class: "empty" }, "Ricerca…"));
+  box.replaceChildren(el("p", { class: "empty" }, "Aranıyor…"));
   try {
     const res = await fetch("/api/search?q=" + encodeURIComponent(q) + ($("#exact").checked ? "&exact=1" : ""));
     const rows = await res.json();
     if (!res.ok) throw new Error(rows.error || res.status);
-    box.replaceChildren(...(rows.length ? rows.map((r) => card(r)) : [el("p", { class: "empty" }, "Nessun risultato.")]));
+    box.replaceChildren(...(rows.length ? rows.map((r) => card(r)) : [el("p", { class: "empty" }, "Sonuç bulunamadı.")]));
   } catch (e) {
-    box.replaceChildren(el("p", { class: "status err" }, "Errore: " + e.message));
+    box.replaceChildren(el("p", { class: "status err" }, "Hata: " + e.message));
   }
 }
 
@@ -487,8 +484,8 @@ async function loadRecent() {
     $("#recent").replaceChildren(...(rows.length ? rows.map((r) =>
       el("div", { class: "card", onclick: () => { $("#q").value = r.key; search(String(r.key)); scrollTo(0, 0); } },
         el("div", { class: "head" }, el("span", { class: "key" }, "#" + r.key),
-          el("span", {}, r.author + ", patch v" + r.version)),
-        el("div", { class: "it" }, r.text))) : [el("p", { class: "empty" }, "Nessuna suggestion ancora.")]));
+          el("span", {}, r.author + ", yama v" + r.version)),
+        el("div", { class: "it" }, r.text))) : [el("p", { class: "empty" }, "Henüz düzenleme yapılmadı.")]));
   } catch (e) { /* page still usable */ }
 }
 
@@ -499,3 +496,4 @@ loadRecent();
 </body>
 </html>
 """
+
