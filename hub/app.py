@@ -372,7 +372,7 @@ class HubAPI:
         settings_toml = (
             f"active_module = {{ Windows = {folder_bytes} }}\n"
             "show_translated = true\n"
-            "pause_refreshes = true\n"
+            "pause_refreshes = false\n"
             "pause_translations = false\n\n"
             "[refresh_debounce]\n"
             "secs = 0\n"
@@ -421,11 +421,17 @@ class HubAPI:
         src_tr = self._res_dir / "TR"
         if (src_tr / "glossary_tr.json").is_file():
             shutil.copy2(src_tr / "glossary_tr.json", tr_dir / "glossary_tr.json")
-        if (src_tr / "model").is_dir():
+        model_candidates = [
+            src_tr / "model",
+            Path(__file__).resolve().parent.parent / "TR" / "model",
+            Path(r"E:\Gw2 TR Translate\Gw2-TR\TR\model"),
+        ]
+        model_src = next((c for c in model_candidates if c.is_dir()), None)
+        if model_src:
             dst_model = tr_dir / "model"
             dst_model.mkdir(parents=True, exist_ok=True)
-            for mf in (src_tr / "model").iterdir():
-                if mf.is_file() and not (dst_model / mf.name).is_file():
+            for mf in model_src.iterdir():
+                if mf.is_file():
                     shutil.copy2(mf, dst_model / mf.name)
             logs.append("Çevrimdışı OPUS-MT Türkçe dil modeli (TR/model) doğrulandı.")
 

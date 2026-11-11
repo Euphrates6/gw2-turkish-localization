@@ -102,7 +102,7 @@ LANGUAGES = {
         code="tr",
         cache_key="tr",
         label="TR",
-        model="model-tr-v1/opus-mt-en-tr-ct2.zip",
+        model="v0.12.0/opus-mt-en-tr-ct2.zip",
         recipe={
             "Recipe": "Tarif: ",
             "Recipes": "Tarifler: ",

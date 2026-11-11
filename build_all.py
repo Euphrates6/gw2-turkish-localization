@@ -57,6 +57,7 @@ def build_hub_exe() -> None:
         "--add-data", f"{ROOT / 'TR' / 'glossary_tr.json'};TR",
         "--add-data", f"{ROOT / 'TR' / 'config.json'};TR",
         "--add-data", f"{ROOT / 'TR' / 'contributor.json'};TR",
+        "--add-data", f"{ROOT / 'TR' / 'model'};TR/model",
         str(ROOT / "hub" / "app.py"),
     ]
     run(cmd)
