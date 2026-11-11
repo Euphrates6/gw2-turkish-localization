@@ -2,7 +2,7 @@
   "backend": "offline",
   "threads": 4,
   "font_injector": true,
-  "char_mode": "full",
+  "char_mode": "smart",
   "keep_items_english": true,
   "api_key": "",
   "model_name": "",

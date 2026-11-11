@@ -27,11 +27,15 @@ def test_turkish_only_and_case() -> None:
 
 def test_font_injector_6_char_fallback() -> None:
     sample = "Şifalı Ğırtlak İksiri ve Çöl Örümceği Üzümü"
-    full_out = lt.fix_turkish_chars(sample, "full")
+    off_out = lt.fix_turkish_chars(sample, "off")
+    smart_out = lt.fix_turkish_chars(sample, "smart")
     ascii6_out = lt.fix_turkish_chars(sample, "ascii_6")
-    assert full_out == sample
+    full_out = lt.fix_turkish_chars(sample, "full")
+    assert off_out == sample
+    assert smart_out == "Sifalı Gırtlak Iksiri ve Çöl Örümcegi Üzümü", f"Got: {smart_out}"
     assert ascii6_out == "Sifali Girtlak Iksiri ve Çöl Örümcegi Üzümü", f"Got: {ascii6_out}"
-    print("[PASS] 2. Font Injector ON ('full') vs OFF ('ascii_6' - only 6 chars converted, Ç/Ö/Ü preserved)")
+    assert full_out == "Sifali Girtlak Iksiri ve Col Orumcegi Uzumu", f"Got: {full_out}"
+    print("[PASS] 2. Turkish char modes: off, smart (native GW2 font), ascii_6, full ASCII")
 
 
 def test_item_and_location_protection() -> None:
@@ -95,8 +99,8 @@ def test_cache_db_sync_and_editor() -> None:
         con.close()
         assert txt_off == "Sifali Çöl Iksiri", f"Got {txt_off!r}"
 
-        # Switch Font Injector back ON -> full (restored from map_tr.db!)
-        changed_on = sync_key_tags(cache_db, "tr", None, "full", map_db=map_db)
+        # Switch Font Injector back ON -> off (restored authentic Turkish from map_tr.db!)
+        changed_on = sync_key_tags(cache_db, "tr", None, "off", map_db=map_db)
         assert changed_on == 1
         con = sqlite3.connect(str(cache_db))
         txt_on = con.execute("SELECT text FROM translations WHERE id = 101").fetchone()[0]

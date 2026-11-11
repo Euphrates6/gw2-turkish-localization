@@ -81,7 +81,7 @@ def sync_key_tags(db: Path | None, cache_key: str, mode: str | None, char_mode: 
         return 0
     # Load authentic Turkish texts from map_tr.db if restoring from 6char -> off
     authentic_map: dict[int, str] = {}
-    if char_mode in ("full", "off", "", None) and map_db and map_db.is_file():
+    if char_mode in ("off", "", None) and map_db and map_db.is_file():
         try:
             mcon = sqlite3.connect(f"file:{map_db}?mode=ro", uri=True, timeout=5)
             try:
@@ -105,9 +105,9 @@ def sync_key_tags(db: Path | None, cache_key: str, mode: str | None, char_mode: 
             changes = []
             for key, text in rows:
                 base = untagged(key, text)
-                if char_mode in ("full", "off", "", None) and key in authentic_map:
+                if char_mode in ("off", "", None) and key in authentic_map:
                     orig = authentic_map[key]
-                    if lt.fix_turkish_chars(orig, "ascii_6") == base:
+                    if lt.fix_turkish_chars(orig, "ascii_6") == base or lt.fix_turkish_chars(orig, "smart") == base:
                         base = orig
                 want = shown_text(key, base, mode, char_mode)
                 if want != text:

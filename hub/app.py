@@ -113,7 +113,7 @@ class HubAPI:
             "backend": "offline",
             "threads": 2,
             "font_injector": True,
-            "char_mode": "full",
+            "char_mode": "smart",
             "keep_items_english": True,
             "api_key": "",
             "model_name": "",
@@ -136,7 +136,8 @@ class HubAPI:
     def _write_tr_config(self, updates: dict) -> dict:
         cfg = self._read_tr_config()
         cfg.update(updates)
-        cfg["char_mode"] = "full" if cfg.get("font_injector", True) else "ascii_6"
+        if "char_mode" not in updates:
+            cfg["char_mode"] = "smart"
 
         targets = [self._res_dir / "TR" / "config.json"]
         lang_dir = self._lang_dir()
@@ -265,7 +266,7 @@ class HubAPI:
             "model_installed": model_ok,
             "glossary_count": 3618,
             "font_injector": bool(cfg.get("font_injector", True)),
-            "char_mode": cfg.get("char_mode", "full"),
+            "char_mode": cfg.get("char_mode", "smart"),
             "keep_items_english": bool(cfg.get("keep_items_english", True)),
             "backend": cfg.get("backend", "offline"),
             "threads": int(cfg.get("threads") or 2),
@@ -611,7 +612,7 @@ class HubAPI:
         sk_mode = sk if sk in ("text", "all") else None
         map_db = mod_dir / "TR" / "map_tr.db"
         try:
-            changed = sync_key_tags(cache_db, "tr", sk_mode, cfg.get("char_mode", "full"), map_db=map_db)
+            changed = sync_key_tags(cache_db, "tr", sk_mode, cfg.get("char_mode", "smart"), map_db=map_db)
             return {
                 "ok": True,
                 "changed": changed,
@@ -712,7 +713,7 @@ class HubAPI:
         cfg = self._read_tr_config()
         author, sk = self._read_contributor()
         patch = CachePatch(tr_dir / "patch_tr.db", "tr", 1)
-        patch.char_mode = cfg.get("char_mode", "full")
+        patch.char_mode = cfg.get("char_mode", "smart")
         patch.show_keys = sk if sk in ("text", "all") else None
         keymap = lt.KeyMap(tr_dir / "map_tr.db")
         patch.map_path = keymap.path

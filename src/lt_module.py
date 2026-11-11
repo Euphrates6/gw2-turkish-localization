@@ -56,12 +56,12 @@ def show_keys_mode(lang_dir: Path) -> str | None:
 
 
 def load_tr_config(lang_dir: Path, module_dir: Path) -> dict:
-    """TR/config.json ayarlarını okur ve Font Injector durumunu tespit eder."""
+    """TR/config.json ayarlarını okur."""
     cfg = {
         "backend": "offline",
         "threads": 0,
         "font_injector": True,
-        "char_mode": "full",
+        "char_mode": "smart",
         "keep_items_english": True,
         "api_key": "",
         "model_name": "",
@@ -75,16 +75,8 @@ def load_tr_config(lang_dir: Path, module_dir: Path) -> dict:
         except Exception as exc:  # noqa: BLE001
             log.warning("config.json okunamadi (%s): varsayilan ayarlar kullaniliyor", exc)
 
-    # Check if turkish_font.disabled marker exists in addons/ directory
-    # module_dir is typically <GW2>/addons/text_translator/modules/local_translator_tr
-    addons_dir = module_dir.parent.parent.parent
-    disabled_marker = addons_dir / "turkish_font.disabled"
-    if disabled_marker.is_file() or cfg.get("font_injector") is False or cfg.get("char_mode") == "ascii_6":
-        cfg["font_injector"] = False
-        cfg["char_mode"] = "ascii_6"
-    else:
-        cfg["font_injector"] = True
-        cfg["char_mode"] = "full"
+    if not cfg.get("char_mode"):
+        cfg["char_mode"] = "smart"
     return cfg
 
 
@@ -154,8 +146,12 @@ class Channel:
     def handshake(self) -> None:
         self.send([struct.pack("<IiI", PROTOCOL, SOURCE_LANG, RESULT_VERSION) + put_string(CACHE_KEY)])
 
-    @staticmethod
-    def text(key: int, src_hash: int, text: str) -> bytes:
+    CHAR_MODE = "smart"
+
+    @classmethod
+    def text(cls, key: int, src_hash: int, text: str) -> bytes:
+        if lt.LANG.code == "tr":
+            text = lt.fix_turkish_chars(text, cls.CHAR_MODE)
         return bytes([KIND_TEXT]) + struct.pack("<IQ", key, src_hash) + put_string(text)
 
     @staticmethod
@@ -660,6 +656,7 @@ def main() -> int:
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO, handlers=handlers)
 
     cfg = load_tr_config(args.lang_dir, module_dir)
+    Channel.CHAR_MODE = cfg.get("char_mode", "smart")
     log.info("Local Translator %s v%s started (protocol %d, cache_key=%s, backend=%s, char_mode=%s, keep_items=%s)",
              lang.label, VERSION, PROTOCOL, CACHE_KEY, cfg["backend"], cfg["char_mode"], cfg["keep_items_english"])
     lower_priority()
@@ -733,6 +730,7 @@ def main() -> int:
     engine = ModuleEngine(lt.FakeTranslator() if fake else None, glossary,
                           args.lang_dir / lang.file("cache", ".jsonl"), args.cache_db,
                           patch=patch, keep_items_english=bool(cfg.get("keep_items_english", True)))
+    engine.char_mode = Channel.CHAR_MODE
     keymap = None
     try:
         keymap = lt.KeyMap(args.lang_dir / lang.file("map", ".db"))

@@ -53,27 +53,35 @@ def tr_upper(text: str) -> str:
     return text.replace("i\u0307", "i").replace("i", "İ").replace("ı", "I").upper()
 
 
-# 6 Range-2 (Latin Extended-A) Turkish characters that require GW2 Font Injector:
-_TR_RANGE2_TABLE = str.maketrans({
-    "ş": "s", "Ş": "S",
-    "ğ": "g", "Ğ": "G",
-    "İ": "I", "ı": "i",
-})
-
-
-def fix_turkish_chars(text: str, mode: str = "full") -> str:
-    """Normalize Turkish characters when GW2 Font Injector is disabled.
-    - 'full' / 'off' (Font Injector ON): Preserves 100% authentic Turkish characters (only strips stray \\u0307).
-    - 'ascii_6' / '6char' / 'smart' (Font Injector OFF): Replaces ONLY the 6 Range-2 characters
-      (ş, Ş, ğ, Ğ, İ, ı) that produce missing/tofu boxes without the font injector, while keeping
-      ç, Ç, ö, Ö, ü, Ü intact.
+def fix_turkish_chars(text: str, mode: str = "smart") -> str:
+    """Normalize Turkish characters for GW2's font engine.
+    'smart': Replaces ONLY the glyphs that GW2's font engine drops (ş, Ş, ğ, Ğ, İ),
+             while preserving 100% authentic ç, Ç, ö, Ö, ü, Ü, ı which GW2 natively renders!
+    'minimal': replaces non-Latin-1 characters (including ı -> i)
+    'full' / 'ascii_full': replaces all accented Turkish characters (also ç, Ç, ö, Ö, ü, Ü)
+            to guarantee 100% readability across all game UI fonts.
+    'off': leaves text untouched.
     """
-    if not text:
+    if not text or mode in ("off", "", None, False):
         return text
-    text = text.replace("i\u0307", "i").replace("\u0307", "")
-    if mode in ("full", "off", "", None, False):
-        return text
-    return text.translate(_TR_RANGE2_TABLE)
+    # Characters that GW2 English font engine natively lacks and drops/skips:
+    text = (text.replace("i\u0307", "i")
+                .replace("\u0307", "")
+                .replace("ş", "s")
+                .replace("Ş", "S")
+                .replace("ğ", "g")
+                .replace("Ğ", "G")
+                .replace("İ", "I"))
+    if mode in ("minimal", "full", "ascii_full", "ascii_6", "6char"):
+        text = text.replace("ı", "i")
+    if mode in ("full", "ascii_full"):
+        text = (text.replace("ç", "c")
+                    .replace("Ç", "C")
+                    .replace("ö", "o")
+                    .replace("Ö", "O")
+                    .replace("ü", "u")
+                    .replace("Ü", "U"))
+    return text
 
 
 # --------------------------------------------------------------------------- #
@@ -1351,6 +1359,7 @@ class Engine:
                  keep_items_english: bool = True) -> None:
         self.translator, self.glossary = translator, glossary
         self.keep_items_english = keep_items_english
+        self.char_mode: str = "smart"
         self.cache: dict[str, str] = {}
         self.queue: deque[str] = deque()
         self.queued: set[str] = set()
@@ -1670,6 +1679,9 @@ class Engine:
             if out.endswith(".") and not out.endswith("..") and not line.rstrip().endswith(END_PUNCT):
                 out = out[:-1]
             out = feminine(fix_percent(out, line)).replace("i\u0307", "i")
+            if LANG.code == "tr":
+                mode = getattr(self, "char_mode", "smart")
+                out = fix_turkish_chars(out, mode)
             results[line] = out
         return results
 
