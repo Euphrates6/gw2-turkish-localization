@@ -355,6 +355,60 @@ def test_atlas_blob_integrity() -> None:
     print(f"[PASS] 9. Atlas blob integrity ({count} entries / {len(seen_ids)} unique fileIds, {len(data):,} bytes consumed cleanly)")
 
 
+def test_hub_update_checker() -> None:
+    from unittest.mock import patch as mock_patch
+
+    assert hub_app._parse_semver("v0.13.0") > hub_app._parse_semver("0.12.0")
+    assert hub_app._parse_semver("v0.12.0-TR") == hub_app._parse_semver("0.12.0")
+    assert hub_app._parse_semver("1.0.0") > hub_app._parse_semver("0.99.9")
+
+    class _FakeResp:
+        def __init__(self, payload: dict) -> None:
+            self._raw = json.dumps(payload).encode("utf-8")
+
+        def read(self) -> bytes:
+            return self._raw
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+    api = hub_app.HubAPI()
+
+    # 1. Newer release available
+    newer_payload = {
+        "tag_name": "v9.9.9",
+        "name": "GW2-TR v9.9.9",
+        "html_url": "https://github.com/Euphrates6/gw2-turkish-localization/releases/tag/v9.9.9",
+        "assets": [
+            {"name": "GW2_TR_Hub.exe", "browser_download_url": "https://example.com/GW2_TR_Hub.exe"},
+        ],
+    }
+    with mock_patch("urllib.request.urlopen", return_value=_FakeResp(newer_payload)):
+        res = api.check_for_updates()
+        assert res["ok"] is True
+        assert res["update_available"] is True
+        assert res["latest_version"] == "9.9.9"
+        assert res["download_url"] == "https://example.com/GW2_TR_Hub.exe"
+
+    # 2. Same version -> no update
+    same_payload = {"tag_name": f"v{hub_app.VERSION}", "html_url": "https://example.com/rel", "assets": []}
+    with mock_patch("urllib.request.urlopen", return_value=_FakeResp(same_payload)):
+        res_same = api.check_for_updates()
+        assert res_same["ok"] is True
+        assert res_same["update_available"] is False
+
+    # 3. Network failure -> graceful fallback
+    with mock_patch("urllib.request.urlopen", side_effect=OSError("offline")):
+        res_err = api.check_for_updates()
+        assert res_err["ok"] is False
+        assert res_err["update_available"] is False
+
+    print("[PASS] 10. Hub GitHub Releases update checker (newer, up-to-date, offline fallback)")
+
+
 if __name__ == "__main__":
     test_turkish_only_and_case()
     test_font_injector_6_char_fallback()
@@ -365,4 +419,5 @@ if __name__ == "__main__":
     test_hub_font_injector_api_key_and_gemini()
     test_safe_install_and_version_consistency()
     test_atlas_blob_integrity()
-    print("\nALL 9 TEST SUITES PASSED SUCCESSFULLY!")
+    test_hub_update_checker()
+    print("\nALL 10 TEST SUITES PASSED SUCCESSFULLY!")

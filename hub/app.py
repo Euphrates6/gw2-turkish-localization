@@ -47,6 +47,16 @@ SCANCODE_TO_KEY = {
 NEXUS_SIG_TEXT_TRANSLATOR = -541596960
 NEXUS_SIG_TURKISH_FONT = 1414877771  # 'TURK' (0x5455524B)
 KEYBIND_ID = "TEXTTRANSLATOR_TOGGLE_SHOW_TRANSLATED"
+GITHUB_LATEST_RELEASE_API = f"https://api.github.com/repos/{lt.GITHUB_REPO}/releases/latest"
+GITHUB_RELEASES_URL = f"https://github.com/{lt.GITHUB_REPO}/releases/latest"
+
+
+def _parse_semver(tag: str) -> tuple[int, ...]:
+    """Parses a version string like 'v0.12.0-TR' into a comparable integer tuple (0, 12, 0)."""
+    nums = [int(x) for x in re.findall(r"\d+", str(tag or ""))[:3]]
+    while len(nums) < 3:
+        nums.append(0)
+    return tuple(nums)
 
 
 def resource_root() -> Path:
@@ -482,6 +492,50 @@ class HubAPI:
             return {"ok": False, "message": "Geçersiz bağlantı."}
         webbrowser.open(url)
         return {"ok": True}
+
+    def check_for_updates(self) -> dict:
+        """Checks GitHub Releases for a newer version of GW2-TR without blocking startup."""
+        base = {
+            "ok": False,
+            "current_version": VERSION,
+            "latest_version": VERSION,
+            "update_available": False,
+            "release_name": "",
+            "release_url": GITHUB_RELEASES_URL,
+            "download_url": "",
+        }
+        try:
+            req = urllib.request.Request(
+                GITHUB_LATEST_RELEASE_API,
+                headers={
+                    "User-Agent": f"GW2-TR-Hub/{VERSION}",
+                    "Accept": "application/vnd.github+json",
+                },
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            tag = str(data.get("tag_name") or "").strip()
+            latest = tag.lstrip("vV") if tag else VERSION
+            release_url = str(data.get("html_url") or GITHUB_RELEASES_URL)
+            release_name = str(data.get("name") or tag or f"v{latest}")
+            download_url = ""
+            for asset in data.get("assets") or []:
+                if isinstance(asset, dict) and str(asset.get("name", "")).lower() == "gw2_tr_hub.exe":
+                    download_url = str(asset.get("browser_download_url") or "")
+                    break
+            update_available = _parse_semver(latest) > _parse_semver(VERSION)
+            return {
+                "ok": True,
+                "current_version": VERSION,
+                "latest_version": latest,
+                "update_available": update_available,
+                "release_name": release_name,
+                "release_url": release_url,
+                "download_url": download_url,
+            }
+        except Exception as exc:
+            base["error"] = str(exc)
+            return base
 
     def launch_game(self) -> dict:
         if not self._game_dir or not (self._game_dir / "Gw2-64.exe").is_file():
