@@ -31,3 +31,20 @@ jobs:
 
       - name: Run modulep v2 protocol tests
         run: python test_protocol.py
+
+  font-injector:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create placeholder atlas blob for compile check
+        shell: pwsh
+        run: |
+          [System.IO.File]::WriteAllBytes("font-injector/loader/turkish_atlases.bin", [byte[]](0,0,0,0))
+
+      - name: Check Rust font loader (cargo check)
+        run: cargo check --manifest-path font-injector/loader/Cargo.toml
+
+      - name: Syntax-check C++ Nexus font addon (g++)
+        run: g++ -std=c++20 -fsyntax-only font-injector/addon/main.cpp -o NUL

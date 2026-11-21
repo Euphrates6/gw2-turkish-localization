@@ -643,6 +643,10 @@ class HubAPI:
                     logs.append("Eski version.dll proxy dosyası temizlendi (font enjektörü artık yalnızca Nexus üzerinden çalışır).")
                 except OSError:
                     pass
+            st_data = st.load()
+            if "version.dll" in (st_data.get("files") or {}):
+                st_data["files"].pop("version.dll", None)
+                st.save(st_data)
 
         # Post-install configuration & preservation
         addons_dir = self._game_dir / "addons"
