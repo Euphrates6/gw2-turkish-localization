@@ -597,6 +597,7 @@ class HubAPI:
         logs: list[str] = []
         cfg = self._read_tr_config()
         st = state_mod.InstallState(state_root)
+        current_comp = "manifest"
         try:
             m = manifest_mod.fetch_manifest(manifest_url, timeout=10.0)
             plan = manifest_mod.plan_update(
@@ -612,6 +613,7 @@ class HubAPI:
 
             staged: dict[str, Path] = {}
             for item in plan.download:
+                current_comp = f"{item.component.id} ({item.file.path})"
                 logs.append(f"İndiriliyor: {item.component.label} ({item.file.size / (1024 * 1024):.1f} MB)...")
                 staged[item.file.sha256] = downloader_mod.download_verified(
                     item.url,
@@ -621,11 +623,15 @@ class HubAPI:
                     validate=item.file.validate,
                 )
 
+            current_comp = "apply_plan"
             apply_res = applier_mod.apply_plan(plan, staged, self._game_dir, st)
             logs.append(f"Bileşenler atomik olarak uygulandı ({apply_res['applied_count']} dosya güncellendi).")
-        except (downloader_mod.DownloadError, applier_mod.ApplyError, ValueError, Exception) as exc:
-            logs.append(f"HATA: {exc}")
-            return {"ok": False, "logs": logs, "status": self.get_status()}
+        except (downloader_mod.DownloadError, applier_mod.ApplyError, ValueError) as exc:
+            logs.append(f"HATA [{current_comp}]: {exc}")
+            return {"ok": False, "failed_component": current_comp, "logs": logs, "status": self.get_status()}
+        except Exception as exc:
+            logs.append(f"BEKLENMEYEN HATA [{current_comp}]: {exc}")
+            return {"ok": False, "failed_component": current_comp, "logs": logs, "status": self.get_status()}
 
         # Post-install configuration & preservation
         addons_dir = self._game_dir / "addons"
