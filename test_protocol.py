@@ -25,6 +25,8 @@ def read_msg(proc):
 
 
 def main():
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="replace")
     print("Testing protocol handshake with lt_module...")
     proc = subprocess.Popen(
         [sys.executable, "src/lt_module.py", "--lang", "tr", "--no-update", "--lang-dir", "TR", "--fake"],
