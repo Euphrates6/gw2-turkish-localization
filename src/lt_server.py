@@ -27,6 +27,8 @@ from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
 
+from version import VERSION
+
 GITHUB_REPO = "Euphrates6/gw2-turkish-localization"
 DEFAULT_BRANCH = "main"
 
@@ -110,7 +112,7 @@ LANGUAGES = {
         code="tr",
         cache_key="tr",
         label="TR",
-        model="v0.12.0/opus-mt-en-tr-ct2.zip",
+        model=f"v{VERSION}/opus-mt-en-tr-ct2.zip",
         recipe={
             "Recipe": "Tarif: ",
             "Recipes": "Tarifler: ",
@@ -1225,11 +1227,12 @@ class DeepLTranslator:
 class GeminiTranslator:
     """Optional Cloud Backend: Google Gemini API."""
 
-    def __init__(self, api_key: str, target_lang: str = "Turkish") -> None:
+    def __init__(self, api_key: str, model: str = "gemini-2.5-flash", target_lang: str = "Turkish") -> None:
         self.api_key = api_key.strip()
+        self.model = model.strip() if model else "gemini-2.5-flash"
         self.target_lang = target_lang
         self.endpoint = (f"https://generativelanguage.googleapis.com/v1beta/models/"
-                         f"gemini-1.5-flash:generateContent?key={self.api_key}")
+                         f"{self.model}:generateContent")
         self.lock = threading.Lock()
 
     def translate(self, texts: list[str]) -> list[str]:
@@ -1248,7 +1251,14 @@ class GeminiTranslator:
                     "contents": [{"parts": [{"text": prompt}]}],
                     "generationConfig": {"response_mime_type": "application/json"}
                 }).encode("utf-8")
-                req = urllib.request.Request(self.endpoint, data=payload, headers={"Content-Type": "application/json"})
+                req = urllib.request.Request(
+                    self.endpoint,
+                    data=payload,
+                    headers={
+                        "Content-Type": "application/json",
+                        "x-goog-api-key": self.api_key,
+                    },
+                )
                 with urllib.request.urlopen(req, timeout=15) as resp:
                     data = json.loads(resp.read().decode("utf-8"))
                     parsed = json.loads(data["candidates"][0]["content"]["parts"][0]["text"])

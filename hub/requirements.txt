@@ -1,0 +1,5 @@
+# Hub Desktop App & Packaging dependencies
+-r ../src/requirements.txt
+pywebview>=5.0.0
+pyinstaller>=6.0.0
+Pillow>=10.0.0

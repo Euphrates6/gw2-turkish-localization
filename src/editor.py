@@ -28,7 +28,6 @@ from patch_db import KIND_AUTO, KIND_DROP, KIND_REVIEWED, CachePatch, untagged
 log = logging.getLogger("lt")
 
 EDITOR_PORT = 8770
-EDITOR_HOST = "suggestions.localhost"
 CONTRIBUTOR_FILE = "contributor.json"
 RESULTS = 50
 MAX_BYTES = 65535
@@ -229,7 +228,7 @@ class Editor:
 
 
 def _handler(editor: Editor, port: int) -> type[BaseHTTPRequestHandler]:
-    hosts = {f"127.0.0.1:{port}", f"localhost:{port}", f"{EDITOR_HOST}:{port}"}
+    hosts = {f"127.0.0.1:{port}", f"localhost:{port}"}
     origins = {f"http://{h}" for h in hosts}
 
     class Handler(BaseHTTPRequestHandler):
@@ -327,7 +326,7 @@ def start(editor: Editor, port: int = EDITOR_PORT) -> ThreadingHTTPServer | None
         return None
     server.daemon_threads = True
     threading.Thread(target=server.serve_forever, daemon=True, name="editor").start()
-    log.info("editor page: http://127.0.0.1:%d (http://%s:%d)", port, EDITOR_HOST, port)
+    log.info("editor page: http://127.0.0.1:%d", port)
     return server
 
 

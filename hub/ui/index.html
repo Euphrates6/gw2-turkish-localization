@@ -788,11 +788,13 @@
             tt_installed: false,
             lt_installed: false,
             font_injector: true,
-            char_mode: "full",
+            char_mode: "off",
             keep_items_english: true,
             backend: "offline",
             threads: 2,
             api_key: "",
+            api_key_set: false,
+            api_key_masked: "",
             model_name: "",
             author: "Oyuncu",
             show_keys: "off",
@@ -933,7 +935,11 @@
             document.getElementById("select-backend-inline").value = appState.backend || "offline";
             document.getElementById("settings-backend").value = appState.backend || "offline";
             document.getElementById("settings-threads").value = String(appState.threads || 2);
-            document.getElementById("settings-api-key").value = appState.api_key || "";
+            const apiKeyInput = document.getElementById("settings-api-key");
+            apiKeyInput.value = "";
+            apiKeyInput.placeholder = appState.api_key_set
+                ? `Kayıtlı (${appState.api_key_masked}) — değiştirmek için yenisini girin`
+                : "API anahtarınızı girin...";
             document.getElementById("settings-model-name").value = appState.model_name || "";
             document.getElementById("settings-author").value = appState.author || "Oyuncu";
             document.getElementById("settings-show-keys").value = appState.show_keys || "off";

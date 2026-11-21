@@ -53,8 +53,8 @@ Proje üç ana bileşenden oluşmaktadır:
 Gereksinimler: Python 3.10+, Visual Studio C++ Build Tools (veya MinGW `g++`), Rust toolchain (`cargo`).
 
 ```powershell
-# Bağımlılıklar:
-pip install -r src/requirements.txt pyinstaller pywebview Pillow
+# Bağımlılıklar (yalnızca çeviri motoru için src/requirements.txt, Hub + derleme için hub/requirements.txt):
+pip install -r hub/requirements.txt
 
 # Testler:
 python test_gw2_tr.py
@@ -64,6 +64,23 @@ python test_protocol.py
 python build_all.py
 python tools/assemble_manual_zip.py
 ```
+
+---
+
+## Katkıda Bulunma
+
+Hata bildirimleri, sözlük (`TR/glossary_tr.json`) iyileştirmeleri ve Pull Request'ler memnuniyetle karşılanır:
+
+1. Depoyu fork edin ve yeni bir dal oluşturun (`git checkout -b fix/aciklama`).
+2. Değişikliklerinizden sonra testleri çalıştırın (`python test_gw2_tr.py` ve `python test_protocol.py`).
+3. Açıklayıcı bir Pull Request gönderin.
+
+---
+
+## Gizlilik ve Kullanım Koşulları (ToS)
+
+* **Gizlilik:** Çeviri motoru varsayılan olarak tamamen **çevrimdışı (yerel)** çalışır. Telemetri veya otomatik veri gönderimi (`map_upload.py`) kapalıdır; yalnızca isteğe bağlı bir bulut motoru (Google/DeepL/Gemini/OpenAI) seçerseniz ilgili sağlayıcıya çevrilecek metinler gönderilir.
+* **ArenaNet ToS Uyarısı:** Bu proje üçüncü parti Raidcore Nexus eklenti yükleyicisini ve çalışma anında bellek (RAM) üzerinden Türkçe font enjeksiyonunu kullanır. Oyun dosyalarını (`Gw2.dat`) değiştirmez ve oynanış avantajı sağlamaz; ancak tüm üçüncü parti eklentilerde olduğu gibi **kullanım tamamen kendi sorumluluğunuzdadır**.
 
 ---
 

@@ -53,8 +53,8 @@ The project consists of three core components:
 Requirements: Python 3.10+, Visual Studio C++ Build Tools (or MinGW `g++`), Rust toolchain (`cargo`).
 
 ```powershell
-# Dependencies:
-pip install -r src/requirements.txt pyinstaller pywebview Pillow
+# Dependencies (src/requirements.txt for translator only, hub/requirements.txt for Hub + packaging):
+pip install -r hub/requirements.txt
 
 # Run tests:
 python test_gw2_tr.py
@@ -64,6 +64,23 @@ python test_protocol.py
 python build_all.py
 python tools/assemble_manual_zip.py
 ```
+
+---
+
+## Contributing
+
+Bug reports, glossary (`TR/glossary_tr.json`) improvements, and Pull Requests are welcome:
+
+1. Fork the repository and create a branch (`git checkout -b fix/description`).
+2. Run the test suite after your changes (`python test_gw2_tr.py` and `python test_protocol.py`).
+3. Open a clear Pull Request describing your changes.
+
+---
+
+## Privacy & Terms of Service
+
+* **Privacy:** The translation engine runs **offline (locally)** by default. Telemetry and automatic uploads (`map_upload.py`) are disabled; text is only sent externally if you explicitly configure an optional cloud backend (Google/DeepL/Gemini/OpenAI).
+* **ArenaNet ToS Notice:** This project uses the third-party Raidcore Nexus addon loader and runtime in-memory (RAM) font injection. It does not modify `Gw2.dat` or provide gameplay advantages, but as with all third-party addons, **use at your own risk**.
 
 ---
 

@@ -5,7 +5,7 @@ Yalnızca Türkçe (tr) dilini destekler.
 Özellikler:
 - Çevrimdışı CTranslate2 + OPUS-MT çeviri motoru (ana öncelik) + opsiyonel bulut motorları
 - GW2 Turkish Font Injector durumuna göre dinamik karakter modu:
-  * Font Injector AÇIK ("full"): ş, Ş, ğ, Ğ, İ, ı, ç, Ç, ö, Ö, ü, Ü tam görünür
+  * Font Injector AÇIK ("off"): ş, Ş, ğ, Ğ, İ, ı, ç, Ç, ö, Ö, ü, Ü tam görünür
   * Font Injector KAPALI ("ascii_6"): yalnızca oyunda kutucuk çıkaran 6 harf (ş->s, Ş->S, ğ->g,
     Ğ->G, İ->I, ı->i) dönüştürülür; ç, Ç, ö, Ö, ü, Ü korunur
 - Eşya ve Mekan İsimlerini İngilizce Koruma (3 katmanlı hibrit filtre)
@@ -33,8 +33,8 @@ from patch_db import (CachePatch, PieceUpdater, SHOW_MODES, has_table, key_tag, 
                       shown_text, sync_key_tags, untagged)
 import editor  # noqa: E402
 import map_upload  # noqa: E402
+from version import VERSION  # noqa: E402
 
-VERSION = "0.12.0"
 PROTOCOL = 2
 SOURCE_LANG = 0
 RESULT_VERSION = 1
@@ -61,7 +61,7 @@ def load_tr_config(lang_dir: Path, module_dir: Path) -> dict:
         "backend": "offline",
         "threads": 0,
         "font_injector": True,
-        "char_mode": "smart",
+        "char_mode": "off",
         "keep_items_english": True,
         "api_key": "",
         "model_name": "",
@@ -76,7 +76,7 @@ def load_tr_config(lang_dir: Path, module_dir: Path) -> dict:
             log.warning("config.json okunamadi (%s): varsayilan ayarlar kullaniliyor", exc)
 
     if not cfg.get("char_mode"):
-        cfg["char_mode"] = "smart"
+        cfg["char_mode"] = "off" if cfg.get("font_injector", True) else "ascii_6"
     return cfg
 
 
@@ -146,7 +146,7 @@ class Channel:
     def handshake(self) -> None:
         self.send([struct.pack("<IiI", PROTOCOL, SOURCE_LANG, RESULT_VERSION) + put_string(CACHE_KEY)])
 
-    CHAR_MODE = "smart"
+    CHAR_MODE = "off"
 
     @classmethod
     def text(cls, key: int, src_hash: int, text: str) -> bytes:
@@ -656,7 +656,7 @@ def main() -> int:
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO, handlers=handlers)
 
     cfg = load_tr_config(args.lang_dir, module_dir)
-    Channel.CHAR_MODE = cfg.get("char_mode", "smart")
+    Channel.CHAR_MODE = cfg.get("char_mode", "off")
     log.info("Local Translator %s v%s started (protocol %d, cache_key=%s, backend=%s, char_mode=%s, keep_items=%s)",
              lang.label, VERSION, PROTOCOL, CACHE_KEY, cfg["backend"], cfg["char_mode"], cfg["keep_items_english"])
     lower_priority()

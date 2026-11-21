@@ -25,6 +25,13 @@ _manual_pkg_tmp/
 *.exe
 *.zip
 *.log
+*.bak
+
+# Release-only model & compiled binary assets (distributed via GitHub Releases)
+TR/model/
+font-injector/**/*.dll
+font-injector/**/turkish_atlases.bin
+font-injector/**/*.res
 
 # User state
 .gw2_tr_hub.json

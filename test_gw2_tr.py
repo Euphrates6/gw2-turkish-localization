@@ -208,6 +208,128 @@ def test_stats_boons_and_conditions_protection() -> None:
     print("[PASS] 6. GW2 Stats, Boons, Conditions & Stat-Set Name Protection (Standalone & Sentences)")
 
 
+def test_hub_font_injector_api_key_and_gemini() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        gw2_dir = tmp_path / "gw2"
+        res_dir = tmp_path / "res"
+        (gw2_dir / "addons").mkdir(parents=True)
+        (gw2_dir / "Gw2-64.exe").write_bytes(b"MZ")
+        (res_dir / "TR").mkdir(parents=True)
+
+        # Dynamic glossary_count test
+        (res_dir / "TR" / "glossary_tr.json").write_text(
+            json.dumps({"exact": {"Play": "Oyna", "Quit": "Çık"}, "terms": {"Hero": "Kahraman"}}, ensure_ascii=False),
+            encoding="utf-8",
+        )
+
+        api = hub_app.HubAPI()
+        api._game_dir = gw2_dir
+        api._res_dir = res_dir
+
+        # 1. Dynamic glossary_count
+        st0 = api.get_status()
+        assert st0["glossary_count"] == 3, f"Expected dynamic glossary_count=3, got {st0['glossary_count']}"
+
+        # 2. Font Injector ON -> char_mode must be 'off' (full Turkish glyphs)
+        res_on = api.set_font_injector(True)
+        assert res_on["ok"]
+        cfg_on = api._read_tr_config()
+        assert cfg_on["font_injector"] is True
+        assert cfg_on["char_mode"] == "off", f"Expected char_mode='off', got {cfg_on['char_mode']!r}"
+
+        # 3. Font Injector OFF -> char_mode must be 'ascii_6'
+        res_off = api.set_font_injector(False)
+        assert res_off["ok"]
+        cfg_off = api._read_tr_config()
+        assert cfg_off["font_injector"] is False
+        assert cfg_off["char_mode"] == "ascii_6", f"Expected char_mode='ascii_6', got {cfg_off['char_mode']!r}"
+
+        # 4. Toggle back ON -> char_mode must return to 'off'
+        api.set_font_injector(True)
+        assert api._read_tr_config()["char_mode"] == "off"
+
+        # 5. API key masking & preservation across save_settings
+        api.save_settings({
+            "font_injector": True,
+            "keep_items_english": True,
+            "backend": "gemini",
+            "threads": 2,
+            "api_key": "AIzaSySecretKey1234567890",
+            "model_name": "gemini-2.5-flash",
+            "author": "Tester",
+            "show_keys": "off",
+        })
+        st_key = api.get_status()
+        assert st_key["api_key"] == "", "Raw API key must not be exposed in get_status()"
+        assert st_key["api_key_set"] is True
+        assert "SecretKey" not in st_key["api_key_masked"]
+        assert st_key["char_mode"] == "off"
+
+        # Re-saving settings with blank api_key preserves existing key
+        api.save_settings({
+            "font_injector": True,
+            "keep_items_english": False,
+            "backend": "gemini",
+            "threads": 4,
+            "api_key": "",
+            "model_name": "gemini-2.5-flash",
+            "author": "Tester",
+            "show_keys": "off",
+        })
+        assert api._read_tr_config()["api_key"] == "AIzaSySecretKey1234567890"
+
+        # 6. GeminiTranslator: API key not in URL + model parameter respected
+        gem = lt.GeminiTranslator("AIzaSySecretKey1234567890", "gemini-2.5-flash")
+        assert "AIzaSySecretKey1234567890" not in gem.endpoint, "API key must not be in URL query string"
+        assert "gemini-2.5-flash:generateContent" in gem.endpoint
+        assert gem.target_lang == "Turkish"
+
+        print("[PASS] 7. Hub Font Injector char_mode ('off'/'ascii_6'), dynamic glossary_count, masked API key & Gemini header")
+
+
+def test_safe_install_and_version_consistency() -> None:
+    import lt_module  # noqa: E402
+    from version import VERSION  # noqa: E402
+
+    # 1. Single VERSION source consistency
+    file_ver = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
+    assert VERSION == file_ver
+    assert lt_module.VERSION == VERSION
+    assert hub_app.VERSION == VERSION
+    assert f"v{VERSION}/" in lt.LANG.model
+
+    # 2. PE DLL validation rejects HTML/garbage and accepts valid PE header
+    assert not hub_app._validate_pe_dll(b"<html>404 Not Found</html>")
+    assert not hub_app._validate_pe_dll(b"MZ" + b"\x00" * 100)  # too small
+    valid_pe = bytearray(70_000)
+    valid_pe[0:2] = b"MZ"
+    valid_pe[0x3C:0x40] = (0x80).to_bytes(4, "little")
+    valid_pe[0x80:0x84] = b"PE\x00\x00"
+    assert hub_app._validate_pe_dll(bytes(valid_pe))
+
+    # 3. settings.toml merge preserves existing user settings and creates .bak
+    with tempfile.TemporaryDirectory() as tmp:
+        settings_path = Path(tmp) / "settings.toml"
+        settings_path.write_text(
+            'active_module = { Windows = [1, 2, 3] }\n'
+            'show_translated = false\n'
+            'pause_refreshes = true\n'
+            'custom_flag = 42\n',
+            encoding="utf-8",
+        )
+        folder_bytes = list("local_translator_tr".encode("utf-8"))
+        hub_app._merge_settings_toml(settings_path, folder_bytes)
+        merged = settings_path.read_text(encoding="utf-8")
+        assert f"active_module = {{ Windows = {folder_bytes} }}" in merged
+        assert "show_translated = false" in merged
+        assert "pause_refreshes = true" in merged
+        assert "custom_flag = 42" in merged
+        assert settings_path.with_name("settings.toml.bak").is_file()
+
+    print("[PASS] 8. Single VERSION source, PE DLL validation, and safe settings.toml merge + backup")
+
+
 if __name__ == "__main__":
     test_turkish_only_and_case()
     test_font_injector_6_char_fallback()
@@ -215,4 +337,6 @@ if __name__ == "__main__":
     test_cache_db_sync_and_editor()
     test_hub_keybind_and_config()
     test_stats_boons_and_conditions_protection()
-    print("\nALL 6 TEST SUITES PASSED SUCCESSFULLY!")
+    test_hub_font_injector_api_key_and_gemini()
+    test_safe_install_and_version_consistency()
+    print("\nALL 8 TEST SUITES PASSED SUCCESSFULLY!")

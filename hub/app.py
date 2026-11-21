@@ -4,7 +4,7 @@ Provides the backend API for the IDE-themed Mod Installation Hub UI (`hub/ui/ind
 - Auto-detects Guild Wars 2 directory
 - Checks & installs Raidcore Nexus (`d3d11.dll`) with website fallback
 - Toggles GW2 Turkish Font Injector (`turkish_font.dll` / `version.dll`) ON/OFF and synchronizes
-  `cache.db` between authentic Turkish glyphs (`full`) and 6-character fallback (`ascii_6`:
+  `cache.db` between authentic Turkish glyphs (`off`) and 6-character fallback (`ascii_6`:
   ş->s, Ş->S, ğ->g, Ğ->G, İ->I, ı->i while keeping ç, Ç, ö, Ö, ü, Ü)
 - Configures in-game translation toggle keybind (`ALT+T`) in `addons/Nexus/InputBinds.json`
 - Configures "Keep Item & Location Names in English" and Offline OPUS-MT vs Optional Cloud backends
@@ -12,11 +12,15 @@ Provides the backend API for the IDE-themed Mod Installation Hub UI (`hub/ui/ind
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import re
 import shutil
+import struct
 import subprocess
 import sys
+import urllib.parse
 import urllib.request
 import webbrowser
 from pathlib import Path
@@ -29,6 +33,7 @@ if str(SRC_DIR) not in sys.path:
 import lt_server as lt  # noqa: E402
 from patch_db import CachePatch, sync_key_tags  # noqa: E402
 import editor as editor_mod  # noqa: E402
+from version import VERSION  # noqa: E402
 
 SCANCODE_TO_KEY = {
     1: "ESC", 2: "1", 3: "2", 4: "3", 5: "4", 6: "5", 7: "6", 8: "7", 9: "8", 10: "9", 11: "0",
@@ -51,19 +56,176 @@ def resource_root() -> Path:
     return ROOT_DIR
 
 
-def detect_gw2_dir() -> Path | None:
-    """Finds Guild Wars 2 installation directory automatically."""
-    candidates = [
-        Path(r"E:\GuildWars2"),
-        Path(r"C:\Program Files\Guild Wars 2"),
-        Path(r"C:\Program Files (x86)\Guild Wars 2"),
-        Path(r"D:\Guild Wars 2"),
-        Path(r"D:\Games\Guild Wars 2"),
-        Path(r"E:\Games\Guild Wars 2"),
-        Path(r"C:\Program Files (x86)\Steam\steamapps\common\Guild Wars 2"),
-        Path(r"D:\SteamLibrary\steamapps\common\Guild Wars 2"),
-        Path(r"E:\SteamLibrary\steamapps\common\Guild Wars 2"),
+def _mask_secret(value: str) -> str:
+    s = (value or "").strip()
+    if not s:
+        return ""
+    if len(s) <= 8:
+        return "••••"
+    return f"{s[:4]}••••{s[-4:]}"
+
+
+def _sha256_file(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _validate_pe_dll(data: bytes, min_bytes: int = 65_536, max_bytes: int = 50 * 1024 * 1024) -> bool:
+    """Validates that downloaded bytes are a reasonable-sized Windows PE binary."""
+    if not (min_bytes <= len(data) <= max_bytes):
+        return False
+    if len(data) < 0x40 or data[:2] != b"MZ":
+        return False
+    pe_offset = struct.unpack_from("<I", data, 0x3C)[0]
+    if pe_offset + 4 > len(data):
+        return False
+    return data[pe_offset:pe_offset + 4] == b"PE\x00\x00"
+
+
+def _safe_copy_with_backup(src: Path, dst: Path) -> bool:
+    """Copies src to dst only if missing or content differs; backs up existing dst to .bak."""
+    if dst.is_file():
+        try:
+            if _sha256_file(src) == _sha256_file(dst):
+                return False
+        except OSError:
+            pass
+        try:
+            shutil.copy2(dst, dst.with_name(dst.name + ".bak"))
+        except OSError:
+            pass
+    shutil.copy2(src, dst)
+    return True
+
+
+def _merge_settings_toml(settings_path: Path, folder_bytes: list[int]) -> None:
+    """Updates active_module in settings.toml while preserving existing user settings."""
+    active_line = f"active_module = {{ Windows = {folder_bytes} }}"
+    if settings_path.is_file():
+        try:
+            existing = settings_path.read_text(encoding="utf-8")
+            try:
+                shutil.copy2(settings_path, settings_path.with_name(settings_path.name + ".bak"))
+            except OSError:
+                pass
+            if re.search(r"^\s*active_module\s*=", existing, flags=re.MULTILINE):
+                merged = re.sub(
+                    r"^\s*active_module\s*=.*$",
+                    active_line,
+                    existing,
+                    count=1,
+                    flags=re.MULTILINE,
+                )
+            else:
+                merged = active_line + "\n" + existing
+            settings_path.write_text(merged, encoding="utf-8")
+            return
+        except OSError:
+            pass
+    settings_toml = (
+        f"{active_line}\n"
+        "show_translated = true\n"
+        "pause_refreshes = false\n"
+        "pause_translations = false\n\n"
+        "[refresh_debounce]\n"
+        "secs = 0\n"
+        "nanos = 500000000\n"
+    )
+    settings_path.write_text(settings_toml, encoding="utf-8")
+
+
+def _detect_gw2_from_registry() -> list[Path]:
+    found: list[Path] = []
+    if os.name != "nt":
+        return found
+    try:
+        import winreg
+        reg_paths = [
+            (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\ArenaNet\Guild Wars 2"),
+            (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\WOW6432Node\ArenaNet\Guild Wars 2"),
+            (winreg.HKEY_CURRENT_USER, r"SOFTWARE\ArenaNet\Guild Wars 2"),
+        ]
+        for root, subkey in reg_paths:
+            try:
+                with winreg.OpenKey(root, subkey) as key:
+                    for val_name in ("Path", "SrcDir", "InstallLocation"):
+                        try:
+                            val, _ = winreg.QueryValueEx(key, val_name)
+                            if isinstance(val, str) and val.strip():
+                                p = Path(val.strip())
+                                found.append(p.parent if p.suffix.lower() == ".exe" else p)
+                        except OSError:
+                            pass
+            except OSError:
+                pass
+    except Exception:
+        pass
+    return found
+
+
+def _detect_steam_gw2_dirs() -> list[Path]:
+    found: list[Path] = []
+    steam_roots: list[Path] = [
+        Path(r"C:\Program Files (x86)\Steam"),
+        Path(r"C:\Program Files\Steam"),
     ]
+    if os.name == "nt":
+        try:
+            import winreg
+            for root, subkey in (
+                (winreg.HKEY_CURRENT_USER, r"Software\Valve\Steam"),
+                (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\WOW6432Node\Valve\Steam"),
+            ):
+                try:
+                    with winreg.OpenKey(root, subkey) as key:
+                        val, _ = winreg.QueryValueEx(key, "SteamPath")
+                        if isinstance(val, str) and val.strip():
+                            steam_roots.insert(0, Path(val.strip()))
+                except OSError:
+                    pass
+        except Exception:
+            pass
+
+    seen_libs: set[Path] = set()
+    for sroot in steam_roots:
+        if not sroot.is_dir():
+            continue
+        libs = [sroot]
+        vdf = sroot / "steamapps" / "libraryfolders.vdf"
+        if vdf.is_file():
+            try:
+                content = vdf.read_text(encoding="utf-8", errors="ignore")
+                for m in re.finditer(r'"path"\s+"([^"]+)"', content):
+                    libs.append(Path(m.group(1).replace("\\\\", "\\")))
+            except OSError:
+                pass
+        for lib in libs:
+            if lib not in seen_libs:
+                seen_libs.add(lib)
+                found.append(lib / "steamapps" / "common" / "Guild Wars 2")
+    return found
+
+
+def detect_gw2_dir() -> Path | None:
+    """Finds Guild Wars 2 installation directory automatically via Registry, Steam libraries, and common paths."""
+    candidates: list[Path] = []
+    candidates.extend(_detect_gw2_from_registry())
+    candidates.extend(_detect_steam_gw2_dirs())
+    for drive in ("C", "D", "E", "F"):
+        root = Path(f"{drive}:\\")
+        if not root.is_dir():
+            continue
+        candidates.extend([
+            root / "Program Files" / "Guild Wars 2",
+            root / "Program Files (x86)" / "Guild Wars 2",
+            root / "Guild Wars 2",
+            root / "GuildWars2",
+            root / "Games" / "Guild Wars 2",
+            root / "SteamLibrary" / "steamapps" / "common" / "Guild Wars 2",
+        ])
     for p in candidates:
         if (p / "Gw2-64.exe").is_file():
             return p
@@ -113,7 +275,7 @@ class HubAPI:
             "backend": "offline",
             "threads": 2,
             "font_injector": True,
-            "char_mode": "smart",
+            "char_mode": "off",
             "keep_items_english": True,
             "api_key": "",
             "model_name": "",
@@ -131,13 +293,18 @@ class HubAPI:
         if self._game_dir and (self._game_dir / "addons" / "turkish_font.disabled").is_file():
             cfg["font_injector"] = False
             cfg["char_mode"] = "ascii_6"
+        elif cfg.get("font_injector", True) and cfg.get("char_mode") in ("", None):
+            cfg["char_mode"] = "off"
         return cfg
 
     def _write_tr_config(self, updates: dict) -> dict:
         cfg = self._read_tr_config()
         cfg.update(updates)
         if "char_mode" not in updates:
-            cfg["char_mode"] = "smart"
+            if "font_injector" in updates:
+                cfg["char_mode"] = "off" if cfg.get("font_injector", True) else "ascii_6"
+            elif not cfg.get("char_mode"):
+                cfg["char_mode"] = "off" if cfg.get("font_injector", True) else "ascii_6"
 
         targets = [self._res_dir / "TR" / "config.json"]
         lang_dir = self._lang_dir()
@@ -244,6 +411,22 @@ class HubAPI:
         except OSError:
             pass
 
+    def _count_glossary_terms(self) -> int:
+        lang_dir = self._lang_dir()
+        candidates = ([lang_dir / "glossary_tr.json"] if lang_dir else []) + [
+            self._res_dir / "TR" / "glossary_tr.json",
+            self._res_dir / "src" / "glossary_tr.default.json",
+        ]
+        for cand in candidates:
+            if cand and cand.is_file():
+                try:
+                    data = json.loads(cand.read_text(encoding="utf-8-sig"))
+                    if isinstance(data, dict):
+                        return len(data.get("exact") or {}) + len(data.get("terms") or {})
+                except Exception:
+                    pass
+        return 0
+
     # ------------------------------------------------------------------ #
     # Public API Methods called from JavaScript
     # ------------------------------------------------------------------ #
@@ -258,19 +441,23 @@ class HubAPI:
             (mod_dir and (mod_dir / "TR" / "model" / "model.bin").is_file())
             or (self._res_dir / "TR" / "model" / "model.bin").is_file()
         )
+        raw_key = str(cfg.get("api_key") or "").strip()
         return {
+            "version": VERSION,
             "game_dir": str(self._game_dir) if self._game_dir else "",
             "nexus_installed": nexus_ok,
             "tt_installed": tt_ok,
             "lt_installed": lt_ok,
             "model_installed": model_ok,
-            "glossary_count": 3618,
+            "glossary_count": self._count_glossary_terms(),
             "font_injector": bool(cfg.get("font_injector", True)),
-            "char_mode": cfg.get("char_mode", "smart"),
+            "char_mode": cfg.get("char_mode", "off"),
             "keep_items_english": bool(cfg.get("keep_items_english", True)),
             "backend": cfg.get("backend", "offline"),
             "threads": int(cfg.get("threads") or 2),
-            "api_key": cfg.get("api_key", ""),
+            "api_key": "",
+            "api_key_set": bool(raw_key),
+            "api_key_masked": _mask_secret(raw_key),
             "model_name": cfg.get("model_name", ""),
             "author": author,
             "show_keys": show_keys,
@@ -312,12 +499,26 @@ class HubAPI:
         bundled = self._res_dir / "assets" / "d3d11.dll"
         try:
             if bundled.is_file():
-                shutil.copy2(bundled, dst)
+                _safe_copy_with_backup(bundled, dst)
                 return {"ok": True, "message": "Raidcore Nexus (d3d11.dll) yerel paketten başarıyla kuruldu.", "status": self.get_status()}
-            req = urllib.request.Request("https://api.raidcore.gg/nexus_d3d11.dll", headers={"User-Agent": "GW2-TR-Hub/0.12.0"})
+            req = urllib.request.Request("https://api.raidcore.gg/nexus_d3d11.dll", headers={"User-Agent": f"GW2-TR-Hub/{VERSION}"})
             with urllib.request.urlopen(req, timeout=30) as resp:
-                dst.write_bytes(resp.read())
-            return {"ok": True, "message": "Raidcore Nexus (d3d11.dll) resmi sunucudan indirildi ve kuruldu.", "status": self.get_status()}
+                payload = resp.read()
+            if not _validate_pe_dll(payload):
+                return {
+                    "ok": False,
+                    "message": "İndirilen d3d11.dll dosyası geçerli bir Windows DLL doğrulamasından geçemedi. Kurulum iptal edildi.",
+                    "status": self.get_status(),
+                }
+            if dst.is_file():
+                try:
+                    shutil.copy2(dst, dst.with_name(dst.name + ".bak"))
+                except OSError:
+                    pass
+            tmp = dst.with_suffix(".dll.tmp")
+            tmp.write_bytes(payload)
+            os.replace(tmp, dst)
+            return {"ok": True, "message": "Raidcore Nexus (d3d11.dll) resmi sunucudan doğrulandı ve kuruldu.", "status": self.get_status()}
         except Exception as exc:
             return {"ok": False, "message": f"Nexus kurulamadı ({exc}). Lütfen raidcore.gg adresinden indirin.", "status": self.get_status()}
 
@@ -342,8 +543,12 @@ class HubAPI:
         tt_src = self._res_dir / "assets" / "addons" / "text_translator.dll"
         if tt_src.is_file():
             try:
-                shutil.copy2(tt_src, addons_dir / "text_translator.dll")
-                logs.append("Text Translator eklentisi (text_translator.dll) kuruldu.")
+                changed = _safe_copy_with_backup(tt_src, addons_dir / "text_translator.dll")
+                logs.append(
+                    "Text Translator eklentisi (text_translator.dll) kuruldu/güncellendi."
+                    if changed
+                    else "Text Translator eklentisi (text_translator.dll) zaten güncel."
+                )
             except PermissionError:
                 logs.append("Text Translator (text_translator.dll) zaten çalışıyor (oyun açık).")
 
@@ -351,7 +556,7 @@ class HubAPI:
         font_src = self._res_dir / "assets" / "addons" / "turkish_font.dll"
         if font_src.is_file():
             try:
-                shutil.copy2(font_src, addons_dir / "turkish_font.dll")
+                _safe_copy_with_backup(font_src, addons_dir / "turkish_font.dll")
             except PermissionError:
                 pass
         disabled_marker = addons_dir / "turkish_font.disabled"
@@ -362,30 +567,20 @@ class HubAPI:
             disabled_marker.write_text("disabled\n", encoding="utf-8")
             logs.append("GW2 Turkish Font Injector KAPALI (6 Harf İngilizce Modu: S, G, I, i).")
 
-        # 4. Module directory & settings.toml
+        # 4. Module directory & settings.toml (safe merge, preserving existing user settings)
         tt_cfg_dir = addons_dir / "text_translator"
         mod_dir = tt_cfg_dir / "modules" / "local_translator_tr"
         tr_dir = mod_dir / "TR"
         tr_dir.mkdir(parents=True, exist_ok=True)
 
-        # Write settings.toml so Text Translator automatically selects local_translator_tr
         folder_bytes = list("local_translator_tr".encode("utf-8"))
-        settings_toml = (
-            f"active_module = {{ Windows = {folder_bytes} }}\n"
-            "show_translated = true\n"
-            "pause_refreshes = false\n"
-            "pause_translations = false\n\n"
-            "[refresh_debounce]\n"
-            "secs = 0\n"
-            "nanos = 500000000\n"
-        )
-        (tt_cfg_dir / "settings.toml").write_text(settings_toml, encoding="utf-8")
+        _merge_settings_toml(tt_cfg_dir / "settings.toml", folder_bytes)
 
         # Copy Local_Translator_TR.exe if built, or configure module.toml
         exe_candidates = [
             self._res_dir / "dist" / "Local_Translator_TR.exe",
             self._res_dir / "assets" / "Local_Translator_TR.exe",
-            Path(r"E:\Gw2 TR Translate\gw2-turkish-localization\dist\Local_Translator_TR.exe"),
+            ROOT_DIR / "dist" / "Local_Translator_TR.exe",
         ]
         exe_copied = False
         for cand in exe_candidates:
@@ -398,10 +593,13 @@ class HubAPI:
                 break
 
         # Also copy Python source files to mod_dir so both .exe and python fallback work
-        for py_name in ("lt_module.py", "lt_server.py", "patch_db.py", "editor.py", "map_upload.py", "glossary_tr.default.json"):
+        for py_name in ("version.py", "lt_module.py", "lt_server.py", "patch_db.py", "editor.py", "map_upload.py", "glossary_tr.default.json"):
             src_py = self._res_dir / "src" / py_name
             if src_py.is_file():
                 shutil.copy2(src_py, mod_dir / py_name)
+        ver_file = self._res_dir / "VERSION"
+        if ver_file.is_file():
+            shutil.copy2(ver_file, mod_dir / "VERSION")
 
         if exe_copied or (mod_dir / "Local_Translator_TR.exe").is_file():
             module_toml = (
@@ -416,7 +614,7 @@ class HubAPI:
                 'args = ["lt_module.py", "--lang", "tr"]\n'
             )
         (mod_dir / "module.toml").write_text(module_toml, encoding="utf-8")
-        logs.append("Local Translator TR v0.12.0 modülü ve module.toml yapılandırıldı.")
+        logs.append(f"Local Translator TR v{VERSION} modülü ve module.toml yapılandırıldı.")
 
         # 5. Copy TR/model, glossary_tr.json, config.json, contributor.json
         src_tr = self._res_dir / "TR"
@@ -424,8 +622,7 @@ class HubAPI:
             shutil.copy2(src_tr / "glossary_tr.json", tr_dir / "glossary_tr.json")
         model_candidates = [
             src_tr / "model",
-            Path(__file__).resolve().parent.parent / "TR" / "model",
-            Path(r"E:\Gw2 TR Translate\Gw2-TR\TR\model"),
+            ROOT_DIR / "TR" / "model",
         ]
         model_src = next((c for c in model_candidates if c.is_dir()), None)
         if model_src:
@@ -580,7 +777,8 @@ class HubAPI:
     def set_font_injector(self, enabled: bool) -> dict:
         """Toggles Turkish Font Injector ON/OFF and immediately converts/restores the 6 Range-2
         characters (ş, Ş, ğ, Ğ, İ, ı) in cache.db while keeping ç, Ç, ö, Ö, ü, Ü intact."""
-        cfg = self._write_tr_config({"font_injector": bool(enabled)})
+        enabled = bool(enabled)
+        target_char_mode = "off" if enabled else "ascii_6"
         if self._game_dir:
             addons_dir = self._game_dir / "addons"
             addons_dir.mkdir(parents=True, exist_ok=True)
@@ -589,7 +787,8 @@ class HubAPI:
                 disabled_marker.unlink(missing_ok=True)
             else:
                 disabled_marker.write_text("disabled\n", encoding="utf-8")
-            self._update_addon_config(NEXUS_SIG_TURKISH_FONT, "GW2 Turkish Font Injector", bool(enabled))
+            self._update_addon_config(NEXUS_SIG_TURKISH_FONT, "GW2 Turkish Font Injector", enabled)
+        self._write_tr_config({"font_injector": enabled, "char_mode": target_char_mode})
 
         sync_info = self.sync_cache_characters()
         changed = sync_info.get("changed", 0)
@@ -612,7 +811,7 @@ class HubAPI:
         sk_mode = sk if sk in ("text", "all") else None
         map_db = mod_dir / "TR" / "map_tr.db"
         try:
-            changed = sync_key_tags(cache_db, "tr", sk_mode, cfg.get("char_mode", "smart"), map_db=map_db)
+            changed = sync_key_tags(cache_db, "tr", sk_mode, cfg.get("char_mode", "off"), map_db=map_db)
             return {
                 "ok": True,
                 "changed": changed,
@@ -640,14 +839,20 @@ class HubAPI:
 
     def save_settings(self, payload: dict) -> dict:
         font_on = bool(payload.get("font_injector", True))
-        self._write_tr_config({
+        updates = {
             "font_injector": font_on,
+            "char_mode": "off" if font_on else "ascii_6",
             "keep_items_english": bool(payload.get("keep_items_english", True)),
             "backend": str(payload.get("backend", "offline")),
             "threads": int(payload.get("threads") or 2),
-            "api_key": str(payload.get("api_key", "")),
             "model_name": str(payload.get("model_name", "")),
-        })
+        }
+        submitted_key = str(payload.get("api_key", "")).strip()
+        if payload.get("clear_api_key"):
+            updates["api_key"] = ""
+        elif submitted_key and "••••" not in submitted_key:
+            updates["api_key"] = submitted_key
+        self._write_tr_config(updates)
         self._write_contributor(
             str(payload.get("author", "Oyuncu")),
             str(payload.get("show_keys", "off")),
@@ -713,7 +918,7 @@ class HubAPI:
         cfg = self._read_tr_config()
         author, sk = self._read_contributor()
         patch = CachePatch(tr_dir / "patch_tr.db", "tr", 1)
-        patch.char_mode = cfg.get("char_mode", "smart")
+        patch.char_mode = cfg.get("char_mode", "off")
         patch.show_keys = sk if sk in ("text", "all") else None
         keymap = lt.KeyMap(tr_dir / "map_tr.db")
         patch.map_path = keymap.path
@@ -836,7 +1041,7 @@ def main() -> None:
     api = HubAPI()
     ui_path = resource_root() / "hub" / "ui" / "index.html"
     window = webview.create_window(
-        title="GW2 TR — Mod Installation Hub (v0.12.0)",
+        title=f"GW2 TR — Mod Installation Hub (v{VERSION})",
         url=ui_path.as_uri(),
         js_api=api,
         width=1120,
