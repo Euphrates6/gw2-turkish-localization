@@ -24,23 +24,32 @@ Proje üç ana bileşenden oluşmaktadır:
 
 ---
 
-## Kurulum
+## Hızlı Başlangıç (Kurulum)
 
-1. [Releases](https://github.com/Euphrates6/gw2-turkish-localization/releases/latest) sayfasından **`GW2_TR_Hub.zip`** (~14 MB) dosyasını indirin ve bir klasöre çıkartın.
-2. `GW2_TR_Hub/GW2_TR_Hub.exe` dosyasını çalıştırın.
-3. Program oyun klasörünü otomatik olarak algılayacaktır. Algılanamazsa `Gw2-64.exe` dosyasının bulunduğu dizini manuel olarak seçin.
-4. **"TÜMÜNÜ KUR / GÜNCELLE"** butonuna tıklayın (kurulum sırasında oyun kapalı olmalıdır).
-5. Kurulum tamamlandıktan sonra oyunu başlatın.
+> **Özet:** `GW2_TR_Hub.zip` indir → klasöre çıkar → oyunu kapat → **TÜMÜNÜ KUR / GÜNCELLE** → oyunu aç → **`ALT+T`**
 
-### Güvenlik ve SHA-256 Doğrulama
+1. [Releases](https://github.com/Euphrates6/gw2-turkish-localization/releases/latest) sayfasından **`GW2_TR_Hub.zip`** (~14 MB) dosyasını indirin ve bir klasöre çıkartın *(doğrudan ZIP içinden çalıştırmayın)*.
+2. **Guild Wars 2'yi kapatın** ve `GW2_TR_Hub/GW2_TR_Hub.exe` dosyasını açın.
+   *(Windows SmartScreen "Bilinmeyen yayımcı" gösterirse **Ek bilgi → Yine de çalıştır** seçin.)*
+3. Hub oyun klasörünü otomatik algılar (algılamazsa `Gw2-64.exe`'nin bulunduğu klasörü seçin).
+4. **"TÜMÜNÜ KUR / GÜNCELLE"** butonuna tıklayın. İlk kurulumda çeviri motoru ve dil modeli (~310 MB) tek seferlik SHA-256 doğrulamasıyla indirilir.
+5. Kurulum bitince oyunu başlatın ve oyun içinde **`ALT+T`** ile çeviriyi açıp kapatın.
 
-İndirdiğiniz paketin bütünlüğünü sürüm notlarındaki SHA-256 değeriyle doğrulayabilirsiniz:
+Kurulum sonrası çeviri **tamamen çevrimdışı** çalışır.
 
-```powershell
-Get-FileHash .\GW2_TR_Hub.zip -Algorithm SHA256
-```
+### Güncelleme ve Kaldırma
 
-*(Not: Uygulama açık kaynaklı ve imzasız olduğundan Windows SmartScreen ilk açılışta "Bilinmeyen yayımcı" bilgisi gösterebilir; "Ek bilgi → Yine de çalıştır" ile devam edebilirsiniz.)*
+* **Güncelleme:** Yeni sürüm çıktığında Hub açılışta üstte bildirim gösterir. Oyunu kapatıp güncelleyin; yalnızca değişen bileşenler indirilir. Kişisel ayarlarınız, sözlüğünüz ve önbelleğiniz korunur.
+* **Kaldırma:** Hub içindeki **Kaldır** butonunu kullanın (`Gw2.dat` oyun dosyalarına dokunulmaz). Yedekler `%LOCALAPPDATA%\GW2_TR_Hub\backups` altında tutulur.
+
+### Sorun Giderme
+
+| Belirti | Çözüm |
+|---|---|
+| "You don't have any translation modules installed" | Text Translator panelinde **Reload Modules**'a tıklayın; olmazsa Hub'da tekrar **TÜMÜNÜ KUR / GÜNCELLE** çalıştırın. |
+| Çeviri görünmüyor | Oyun içinde **`ALT+T`** ile açık olduğundan emin olun; Hub'da motorun `offline` seçili olduğunu kontrol edin. |
+| Türkçe karakterler (`ş, ğ, İ, ı`) bozuk | Nexus'ta `turkish_font.dll` eklentisinin aktif olduğunu ve `addons/turkish_font.disabled` dosyasının bulunmadığını doğrulayın. |
+| Kurulum yarıda kaldı | Oyunu tamamen kapatıp Hub'da **TÜMÜNÜ KUR / GÜNCELLE** işlemini tekrarlayın (veya **Kaldır** → temiz kurulum). |
 
 ---
 

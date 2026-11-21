@@ -24,23 +24,32 @@ The project consists of three core components:
 
 ---
 
-## Installation
+## Quick Start (Installation)
 
-1. Download **`GW2_TR_Hub.zip`** (~14 MB) from [Releases](https://github.com/Euphrates6/gw2-turkish-localization/releases/latest) and extract it to a folder.
-2. Run `GW2_TR_Hub/GW2_TR_Hub.exe`.
-3. The application will detect your game folder automatically. If not found, select the folder containing `Gw2-64.exe` manually.
-4. Click **"TÜMÜNÜ KUR / GÜNCELLE"** (make sure the game is closed first).
-5. Launch the game once installation is complete.
+> **Short version:** Download `GW2_TR_Hub.zip` → extract → close game → **TÜMÜNÜ KUR / GÜNCELLE** → launch game → **`ALT+T`**
 
-### Security & SHA-256 Verification
+1. Download **`GW2_TR_Hub.zip`** (~14 MB) from [Releases](https://github.com/Euphrates6/gw2-turkish-localization/releases/latest) and extract it into a folder *(do not launch directly from inside the ZIP)*.
+2. **Close Guild Wars 2** and run `GW2_TR_Hub/GW2_TR_Hub.exe`.
+   *(If Windows SmartScreen shows "Unknown publisher", click **More info → Run anyway**.)*
+3. The Hub detects your game folder automatically (if not, select the folder containing `Gw2-64.exe`).
+4. Click **"TÜMÜNÜ KUR / GÜNCELLE"** *(Install All / Update)*. The first install downloads the translation engine and offline model (~310 MB) once with SHA-256 verification.
+5. Launch the game and press **`ALT+T`** to toggle translation on/off.
 
-You can verify the integrity of the downloaded archive against the SHA-256 checksum published in the release notes:
+After installation, translation runs **fully offline**.
 
-```powershell
-Get-FileHash .\GW2_TR_Hub.zip -Algorithm SHA256
-```
+### Updating & Uninstalling
 
-*(Note: Because this open-source build is unsigned, Windows SmartScreen may show an "Unknown publisher" notice on first launch; click "More info → Run anyway".)*
+* **Updating:** The Hub checks for updates on launch and displays a banner when a new version is available. Close the game before updating; only changed components are downloaded, and your settings, custom glossary, and cache are preserved.
+* **Uninstalling:** Use the **Kaldır** *(Uninstall)* button inside the Hub (`Gw2.dat` is never modified). Backups are stored under `%LOCALAPPDATA%\GW2_TR_Hub\backups`.
+
+### Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| "You don't have any translation modules installed" | Click **Reload Modules** in Text Translator; if that does not resolve it, run **TÜMÜNÜ KUR / GÜNCELLE** again in the Hub. |
+| Translation not showing | Make sure translation is toggled on with **`ALT+T`** and the backend is set to `offline` in the Hub. |
+| Turkish characters (`ş, ğ, İ, ı`) broken | Verify `turkish_font.dll` is enabled in Nexus and `addons/turkish_font.disabled` does not exist. |
+| Install interrupted | Close the game completely and re-run **TÜMÜNÜ KUR / GÜNCELLE** in the Hub (or **Uninstall** → clean install). |
 
 ---
 
