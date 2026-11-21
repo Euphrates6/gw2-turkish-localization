@@ -183,12 +183,39 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-2 shrink-0">
+                    <button id="btn-update-components" onclick="installFromManifestUI()" class="hidden px-3 py-1.5 text-xs font-mono bg-emerald-500 text-ide-bg font-semibold rounded-sm hover:opacity-90 transition-opacity flex items-center gap-1.5">
+                        <i class="ph ph-arrows-clockwise"></i> BİLEŞENLERİ GÜNCELLE
+                    </button>
                     <button id="btn-update-download" onclick="openUpdateDownload()" class="px-3 py-1.5 text-xs font-mono bg-emerald-500 text-ide-bg font-semibold rounded-sm hover:opacity-90 transition-opacity flex items-center gap-1.5">
                         <i class="ph ph-download-simple"></i> YENİ SÜRÜMÜ İNDİR
                     </button>
                     <button onclick="openUpdateReleaseNotes()" class="px-3 py-1.5 text-xs font-mono bg-ide-bg border border-ide-border text-ide-text rounded-sm hover:bg-ide-hover transition-colors flex items-center gap-1.5">
                         <i class="ph ph-arrow-square-out"></i> SÜRÜM NOTLARI
                     </button>
+                </div>
+            </div>
+
+            <!-- Game Running Modal (Shown when Gw2-64.exe or Local_Translator_TR.exe blocks install/update) -->
+            <div id="process-block-modal" class="hidden fixed inset-0 z-50 bg-black/75 flex items-center justify-center p-4">
+                <div class="bg-ide-panel border border-amber-500/70 rounded-sm max-w-md w-full p-5 flex flex-col gap-4 shadow-2xl">
+                    <div class="flex items-start gap-3">
+                        <i class="ph ph-warning-octagon text-2xl text-amber-400 shrink-0 mt-0.5"></i>
+                        <div class="flex flex-col gap-1">
+                            <h3 class="text-sm font-mono font-semibold text-amber-400 uppercase tracking-wider">Önce Oyunu Kapatın</h3>
+                            <p class="text-xs text-ide-muted leading-relaxed">
+                                Aşağıdaki işlemler şu anda çalıştığı için yama dosyaları kilitli. Lütfen bunları kapatıp tekrar deneyin:
+                            </p>
+                            <div id="process-block-list" class="mt-1 px-2.5 py-1.5 bg-ide-bg border border-ide-border rounded-sm font-mono text-xs text-ide-text"></div>
+                        </div>
+                    </div>
+                    <div class="flex justify-end gap-2">
+                        <button onclick="closeProcessBlockModal()" class="px-3 py-1.5 text-xs font-mono bg-ide-bg border border-ide-border text-ide-muted hover:text-ide-text rounded-sm">
+                            İPTAL
+                        </button>
+                        <button onclick="retryBlockedAction()" class="px-3 py-1.5 text-xs font-mono bg-amber-500 text-ide-bg font-semibold rounded-sm hover:opacity-90">
+                            TEKRAR DENE
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -1015,7 +1042,10 @@
             const res = await apiCall("install_all");
             btn.textContent = "TÜMÜNÜ KUR / GÜNCELLE";
             if (res) {
-                if (res.logs) res.logs.forEach(l => addLog("+", l));
+                if (res.blocking_processes && res.blocking_processes.length) {
+                    showProcessBlockModal(res.blocking_processes, installAll);
+                }
+                if (res.logs) res.logs.forEach(l => addLog(res.ok ? "+" : "!", l));
                 if (res.status) renderState(res.status);
             }
         }
@@ -1037,6 +1067,9 @@
             addLog("*", "Raidcore Nexus (d3d11.dll) kuruluyor...");
             const res = await apiCall("install_nexus");
             if (res) {
+                if (res.blocking_processes && res.blocking_processes.length) {
+                    showProcessBlockModal(res.blocking_processes, installNexus);
+                }
                 addLog(res.ok ? "+" : "!", res.message);
                 if (res.status) renderState(res.status);
             }
@@ -1309,6 +1342,49 @@
         }
 
         let latestUpdateInfo = null;
+        let pendingBlockedAction = null;
+
+        function showProcessBlockModal(procs, retryFn) {
+            pendingBlockedAction = retryFn || null;
+            const listEl = document.getElementById("process-block-list");
+            const modal = document.getElementById("process-block-modal");
+            if (listEl) listEl.textContent = procs.join(", ");
+            if (modal) modal.classList.remove("hidden");
+        }
+
+        function closeProcessBlockModal() {
+            pendingBlockedAction = null;
+            const modal = document.getElementById("process-block-modal");
+            if (modal) modal.classList.add("hidden");
+        }
+
+        async function retryBlockedAction() {
+            const fn = pendingBlockedAction;
+            closeProcessBlockModal();
+            if (typeof fn === "function") await fn();
+        }
+
+        async function installFromManifestUI() {
+            const btn = document.getElementById("btn-update-components");
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = "GÜNCELLENİYOR...";
+            }
+            addLog("*", "Artımlı manifest güncellemesi başlatılıyor...");
+            const res = await apiCall("install_from_manifest");
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = `<i class="ph ph-arrows-clockwise"></i> BİLEŞENLERİ GÜNCELLE`;
+            }
+            if (res) {
+                if (res.blocking_processes && res.blocking_processes.length) {
+                    showProcessBlockModal(res.blocking_processes, installFromManifestUI);
+                }
+                if (res.logs) res.logs.forEach(l => addLog(res.ok ? "+" : "!", l));
+                if (res.status) renderState(res.status);
+                if (res.ok) await checkForUpdates();
+            }
+        }
 
         async function checkForUpdates() {
             const info = await apiCall("check_for_updates");
@@ -1320,13 +1396,25 @@
             if (latestEl) latestEl.textContent = `v${latest}-TR`;
 
             const banner = document.getElementById("update-available-banner");
-            if (info.ok && info.update_available && banner) {
+            const compBtn = document.getElementById("btn-update-components");
+            const plan = info.plan_summary || null;
+            const hasCompUpdates = Boolean(info.manifest_available && plan && plan.download_count > 0);
+
+            if (info.ok && (info.update_available || hasCompUpdates) && banner) {
                 document.getElementById("update-banner-title").textContent =
                     `YENİ SÜRÜM YAYINLANDI: v${latest} (MEVCUT: v${cur})`;
-                document.getElementById("update-banner-desc").textContent =
-                    `${info.release_name || ("v" + latest)} sürümü hazır. Güncel GW2_TR_Hub.exe dosyasını indirebilirsiniz.`;
+                if (hasCompUpdates) {
+                    const mb = (plan.total_bytes / (1024 * 1024)).toFixed(1);
+                    document.getElementById("update-banner-desc").textContent =
+                        `${plan.download_count} bileşen güncellenecek (${mb} MB) — ${plan.skip_count} bileşen zaten güncel, tekrar indirilmeyecek.`;
+                    if (compBtn) compBtn.classList.remove("hidden");
+                } else {
+                    document.getElementById("update-banner-desc").textContent =
+                        `${info.release_name || ("v" + latest)} sürümü hazır. Güncel GW2_TR_Hub.exe dosyasını indirebilirsiniz.`;
+                    if (compBtn) compBtn.classList.add("hidden");
+                }
                 banner.classList.remove("hidden");
-                addLog("!", `Yeni sürüm bulundu: v${latest} (Mevcut: v${cur}). GitHub Releases üzerinden indirebilirsiniz.`);
+                addLog("!", `Yeni sürüm bulundu: v${latest} (Mevcut: v${cur}).`);
             } else if (banner) {
                 banner.classList.add("hidden");
             }

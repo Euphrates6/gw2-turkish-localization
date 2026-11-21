@@ -703,6 +703,12 @@ class HubAPI:
                 "logs": [f"HATA: Önce {', '.join(blockers)} kapatılmalı. Dosya kilitleri nedeniyle kurulum iptal edildi."],
                 "status": self.get_status(),
             }
+
+        # Lightweight single-umbrella Hub: if DLLs are not bundled locally, install via manifest
+        has_local_assets = (self._res_dir / "assets" / "addons" / "text_translator.dll").is_file()
+        if not has_local_assets:
+            return self.install_from_manifest()
+
         logs: list[str] = []
         errors: list[str] = []
         cfg = self._read_tr_config()
