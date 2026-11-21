@@ -409,6 +409,62 @@ def test_hub_update_checker() -> None:
     print("[PASS] 10. Hub GitHub Releases update checker (newer, up-to-date, offline fallback)")
 
 
+def test_process_guard_glossary_preserve_and_perm_error() -> None:
+    from unittest.mock import patch as mock_patch
+    import process_guard  # noqa: E402
+
+    # 11. Process guard blocks when GW2 or Local_Translator_TR is running, allows unrelated processes
+    assert process_guard.blocking_processes({"notepad.exe", "explorer.exe"}) == []
+    assert process_guard.blocking_processes({"Gw2-64.exe", "chrome.exe"}) == ["gw2-64.exe"]
+    assert process_guard.blocking_processes({"Local_Translator_TR.exe", "GW2.EXE"}) == [
+        "gw2.exe",
+        "local_translator_tr.exe",
+    ]
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        gw2_dir = tmp_path / "gw2"
+        res_dir = tmp_path / "res"
+        (gw2_dir / "addons" / "text_translator" / "modules" / "local_translator_tr" / "TR").mkdir(parents=True)
+        (gw2_dir / "Gw2-64.exe").write_bytes(b"MZ")
+        (res_dir / "TR").mkdir(parents=True)
+        (res_dir / "assets" / "addons").mkdir(parents=True)
+        (res_dir / "TR" / "glossary_tr.json").write_text('{"exact": {"Default": "Varsayilan"}, "terms": {}}', encoding="utf-8")
+        (res_dir / "assets" / "addons" / "text_translator.dll").write_bytes(b"NEW_DLL_CONTENT")
+
+        api = hub_app.HubAPI()
+        api._game_dir = gw2_dir
+        api._res_dir = res_dir
+
+        # Blocked when Gw2-64.exe is running
+        with mock_patch.object(process_guard, "running_process_names", return_value={"gw2-64.exe"}):
+            res_blocked = api.install_all()
+            assert res_blocked["ok"] is False
+            assert "gw2-64.exe" in res_blocked["blocking_processes"]
+            res_nx_blocked = api.install_nexus()
+            assert res_nx_blocked["ok"] is False
+            assert "gw2-64.exe" in res_nx_blocked["blocking_processes"]
+
+        # 12. User's existing glossary_tr.json is preserved across install_all
+        user_glossary = gw2_dir / "addons" / "text_translator" / "modules" / "local_translator_tr" / "TR" / "glossary_tr.json"
+        custom_content = '{"exact": {"Custom": "Ozel"}, "terms": {}}'
+        user_glossary.write_text(custom_content, encoding="utf-8")
+
+        with mock_patch.object(process_guard, "running_process_names", return_value={"explorer.exe"}):
+            res_ok = api.install_all()
+            assert res_ok["ok"] is True
+            assert user_glossary.read_text(encoding="utf-8") == custom_content
+
+        # 13. PermissionError on locked DLL must fail install_all (ok == False)
+        with mock_patch.object(process_guard, "running_process_names", return_value=set()):
+            with mock_patch.object(hub_app, "_safe_copy_with_backup", side_effect=PermissionError("locked")):
+                res_perm = api.install_all()
+                assert res_perm["ok"] is False
+                assert len(res_perm["errors"]) >= 1
+
+    print("[PASS] 11-13. Process guard blocking, user glossary preservation, and PermissionError failure handling")
+
+
 if __name__ == "__main__":
     test_turkish_only_and_case()
     test_font_injector_6_char_fallback()
@@ -420,4 +476,5 @@ if __name__ == "__main__":
     test_safe_install_and_version_consistency()
     test_atlas_blob_integrity()
     test_hub_update_checker()
-    print("\nALL 10 TEST SUITES PASSED SUCCESSFULLY!")
+    test_process_guard_glossary_preserve_and_perm_error()
+    print("\nALL 11 TEST SUITES (13 CHECKS) PASSED SUCCESSFULLY!")

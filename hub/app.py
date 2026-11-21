@@ -27,13 +27,16 @@ from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 SRC_DIR = ROOT_DIR / "src"
-if str(SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(SRC_DIR))
+HUB_DIR = Path(__file__).resolve().parent
+for _p in (str(SRC_DIR), str(HUB_DIR)):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 import lt_server as lt  # noqa: E402
 from patch_db import CachePatch, sync_key_tags  # noqa: E402
 import editor as editor_mod  # noqa: E402
 from version import VERSION  # noqa: E402
+import process_guard  # noqa: E402
 
 SCANCODE_TO_KEY = {
     1: "ESC", 2: "1", 3: "2", 4: "3", 5: "4", 6: "5", 7: "6", 8: "7", 9: "8", 10: "9", 11: "0",
@@ -549,6 +552,14 @@ class HubAPI:
     def install_nexus(self) -> dict:
         if not self._game_dir:
             return {"ok": False, "message": "Lütfen önce Guild Wars 2 klasörünü seçin."}
+        blockers = process_guard.blocking_processes()
+        if blockers:
+            return {
+                "ok": False,
+                "blocking_processes": blockers,
+                "message": f"Önce {', '.join(blockers)} kapatılmalı. Dosya kilitleri nedeniyle Nexus kurulumu iptal edildi.",
+                "status": self.get_status(),
+            }
         dst = self._game_dir / "d3d11.dll"
         bundled = self._res_dir / "assets" / "d3d11.dll"
         try:
@@ -579,15 +590,29 @@ class HubAPI:
     def install_all(self) -> dict:
         if not self._game_dir:
             return {"ok": False, "logs": ["HATA: Guild Wars 2 klasörü seçilmedi!"]}
+        blockers = process_guard.blocking_processes()
+        if blockers:
+            return {
+                "ok": False,
+                "blocking_processes": blockers,
+                "logs": [f"HATA: Önce {', '.join(blockers)} kapatılmalı. Dosya kilitleri nedeniyle kurulum iptal edildi."],
+                "status": self.get_status(),
+            }
         logs: list[str] = []
+        errors: list[str] = []
         cfg = self._read_tr_config()
 
         # 1. Raidcore Nexus (d3d11.dll)
         nexus_dst = self._game_dir / "d3d11.dll"
         nexus_src = self._res_dir / "assets" / "d3d11.dll"
         if not nexus_dst.is_file() and nexus_src.is_file():
-            shutil.copy2(nexus_src, nexus_dst)
-            logs.append("Raidcore Nexus (d3d11.dll) kuruldu.")
+            try:
+                _safe_copy_with_backup(nexus_src, nexus_dst)
+                logs.append("Raidcore Nexus (d3d11.dll) kuruldu.")
+            except PermissionError as exc:
+                msg = f"HATA: d3d11.dll kopyalanamadı (dosya kilitli: {exc})."
+                errors.append(msg)
+                logs.append(msg)
         elif nexus_dst.is_file():
             logs.append("Raidcore Nexus (d3d11.dll) doğrulandı.")
 
@@ -603,16 +628,20 @@ class HubAPI:
                     if changed
                     else "Text Translator eklentisi (text_translator.dll) zaten güncel."
                 )
-            except PermissionError:
-                logs.append("Text Translator (text_translator.dll) zaten çalışıyor (oyun açık).")
+            except PermissionError as exc:
+                msg = f"HATA: text_translator.dll güncellenemedi (dosya kilitli: {exc}). Oyunu kapatıp tekrar deneyin."
+                errors.append(msg)
+                logs.append(msg)
 
         # 3. Turkish Font Injector (turkish_font.dll + version.dll dual-guard)
         font_src = self._res_dir / "assets" / "addons" / "turkish_font.dll"
         if font_src.is_file():
             try:
                 _safe_copy_with_backup(font_src, addons_dir / "turkish_font.dll")
-            except PermissionError:
-                pass
+            except PermissionError as exc:
+                msg = f"HATA: turkish_font.dll güncellenemedi (dosya kilitli: {exc}). Oyunu kapatıp tekrar deneyin."
+                errors.append(msg)
+                logs.append(msg)
         disabled_marker = addons_dir / "turkish_font.disabled"
         if cfg.get("font_injector", True):
             disabled_marker.unlink(missing_ok=True)
@@ -640,10 +669,12 @@ class HubAPI:
         for cand in exe_candidates:
             if cand.is_file():
                 try:
-                    shutil.copy2(cand, mod_dir / "Local_Translator_TR.exe")
+                    _safe_copy_with_backup(cand, mod_dir / "Local_Translator_TR.exe")
                     exe_copied = True
-                except PermissionError:
-                    exe_copied = True
+                except PermissionError as exc:
+                    msg = f"HATA: Local_Translator_TR.exe güncellenemedi (dosya kilitli: {exc})."
+                    errors.append(msg)
+                    logs.append(msg)
                 break
 
         # Also copy Python source files to mod_dir so both .exe and python fallback work
@@ -670,10 +701,15 @@ class HubAPI:
         (mod_dir / "module.toml").write_text(module_toml, encoding="utf-8")
         logs.append(f"Local Translator TR v{VERSION} modülü ve module.toml yapılandırıldı.")
 
-        # 5. Copy TR/model, glossary_tr.json, config.json, contributor.json
+        # 5. Copy TR/model, glossary_tr.json (preserve user edits), config.json, contributor.json
         src_tr = self._res_dir / "TR"
-        if (src_tr / "glossary_tr.json").is_file():
-            shutil.copy2(src_tr / "glossary_tr.json", tr_dir / "glossary_tr.json")
+        src_glossary = src_tr / "glossary_tr.json"
+        dst_glossary = tr_dir / "glossary_tr.json"
+        if src_glossary.is_file() and not dst_glossary.is_file():
+            shutil.copy2(src_glossary, dst_glossary)
+            logs.append("Türkçe oyun sözlüğü (glossary_tr.json) kuruldu.")
+        elif dst_glossary.is_file():
+            logs.append("Mevcut kullanıcı sözlüğü (glossary_tr.json) korundu.")
         model_candidates = [
             src_tr / "model",
             ROOT_DIR / "TR" / "model",
@@ -703,7 +739,7 @@ class HubAPI:
         if sync_res.get("changed"):
             logs.append(sync_res["message"])
 
-        return {"ok": True, "logs": logs, "status": self.get_status()}
+        return {"ok": len(errors) == 0, "errors": errors, "logs": logs, "status": self.get_status()}
 
     def uninstall_mod(self, remove_nexus: bool = False) -> dict:
         """Safely uninstalls Guild Wars 2 Turkish Localization mod files.
