@@ -465,6 +465,92 @@ def test_process_guard_glossary_preserve_and_perm_error() -> None:
     print("[PASS] 11-13. Process guard blocking, user glossary preservation, and PermissionError failure handling")
 
 
+def test_manifest_state_and_incremental_plan() -> None:
+    import zipfile
+    import manifest as manifest_mod  # noqa: E402
+    import state as state_mod  # noqa: E402
+    sys.path.insert(0, str(ROOT / "tools"))
+    import build_manifest as bm  # noqa: E402
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        assets_dir = tmp_path / "release_assets"
+        game_dir = tmp_path / "gw2"
+        state_dir = tmp_path / "appdata"
+        assets_dir.mkdir()
+        game_dir.mkdir()
+
+        # Create sample release assets including a zip model archive
+        (assets_dir / "d3d11.dll").write_bytes(b"MZ" + b"N" * 100)
+        (assets_dir / "text_translator.dll").write_bytes(b"MZ" + b"T" * 120)
+        (assets_dir / "turkish_font.dll").write_bytes(b"MZ" + b"F" * 140)
+        with zipfile.ZipFile(assets_dir / "opus-mt-en-tr-ct2.zip", "w") as zf:
+            zf.writestr("model.bin", b"MODEL_BYTES_V1")
+            zf.writestr("source.spm", b"SPM_BYTES_V1")
+
+        # 1. Build & validate manifest via tools/build_manifest.py
+        raw_manifest = bm.build_manifest(assets_dir, version="0.13.0")
+        m = manifest_mod.validate_schema(raw_manifest)
+        assert m.version == "0.13.0"
+        assert len(m.components) == 4
+        assert [c.id for c in m.components] == [
+            "nexus",
+            "model.opus_mt_tr",
+            "addon.text_translator",
+            "addon.font_injector",
+        ]
+
+        # 2. Path traversal in manifest must be rejected
+        bad_manifest = json.loads(json.dumps(raw_manifest))
+        bad_manifest["components"]["addon.text_translator"]["files"][0]["path"] = "../../evil.dll"
+        try:
+            manifest_mod.validate_schema(bad_manifest)
+            raise AssertionError("Expected path traversal rejection")
+        except ValueError:
+            pass
+
+        # 3. Fresh install plan downloads all 4 enabled components
+        plan_fresh = manifest_mod.plan_update(m, game_dir, local_state={}, toggles={"font_injector": True})
+        assert len(plan_fresh.download) == 4
+        assert plan_fresh.total_bytes > 0
+
+        # 4. Simulate installed files: Nexus present, model unchanged, font_injector toggled OFF
+        (game_dir / "d3d11.dll").write_bytes(b"USER_CUSTOM_NEXUS")
+        mod_dir = game_dir / "addons" / "text_translator" / "modules" / "local_translator_tr"
+        (mod_dir / "TR" / "model").mkdir(parents=True)
+        (mod_dir / "TR" / "model" / "model.bin").write_bytes(b"MODEL_BYTES_V1")
+        (mod_dir / "TR" / "model" / "source.spm").write_bytes(b"SPM_BYTES_V1")
+        (game_dir / "addons" / "text_translator.dll").write_bytes(b"OLD_TT_DLL")
+
+        st = state_mod.InstallState(state_dir)
+        st.save({
+            "version": "0.12.0",
+            "files": {
+                "addons/text_translator/modules/local_translator_tr/tr/model/model.bin": bm.sha256_bytes(b"MODEL_BYTES_V1"),
+                "addons/text_translator/modules/local_translator_tr/tr/model/source.spm": bm.sha256_bytes(b"SPM_BYTES_V1"),
+                "addons/text_translator.dll": bm.sha256_bytes(b"OLD_TT_DLL"),
+            },
+        })
+        loaded_state = st.load()
+        assert loaded_state["version"] == "0.12.0"
+
+        # Incremental plan: skips Nexus (if_missing), skips unchanged model, skips disabled font_injector, downloads ONLY text_translator.dll!
+        plan_inc = manifest_mod.plan_update(m, game_dir, local_state=loaded_state, toggles={"font_injector": False})
+        assert [item.component.id for item in plan_inc.download] == ["addon.text_translator"]
+        skip_reasons = {comp.id: reason for comp, _, reason in plan_inc.skip}
+        assert skip_reasons["nexus"] == "already_present"
+        assert skip_reasons["model.opus_mt_tr"] == "up_to_date"
+        assert skip_reasons["addon.font_injector"] == "disabled"
+
+        # 5. Journal lifecycle
+        st.write_journal({"version": "0.13.0", "step": "apply"})
+        assert st.pending_journal() is not None
+        st.commit_journal()
+        assert st.pending_journal() is None
+
+    print("[PASS] 14. Manifest schema, path traversal guard, InstallState journal, and incremental update planner")
+
+
 if __name__ == "__main__":
     test_turkish_only_and_case()
     test_font_injector_6_char_fallback()
@@ -477,4 +563,5 @@ if __name__ == "__main__":
     test_atlas_blob_integrity()
     test_hub_update_checker()
     test_process_guard_glossary_preserve_and_perm_error()
-    print("\nALL 11 TEST SUITES (13 CHECKS) PASSED SUCCESSFULLY!")
+    test_manifest_state_and_incremental_plan()
+    print("\nALL 12 TEST SUITES (14 CHECKS) PASSED SUCCESSFULLY!")
