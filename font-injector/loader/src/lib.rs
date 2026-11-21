@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use std::ffi::c_void;
+use std::panic;
 use std::path::Path;
-use std::sync::atomic::{AtomicI32, Ordering};
+use std::sync::atomic::{AtomicI32, AtomicUsize, Ordering};
 use std::sync::OnceLock;
 use minhook::MinHook;
 
@@ -20,7 +21,7 @@ static REAL_VERSION: OnceLock<HMODULE> = OnceLock::new();
 static ATLASES: OnceLock<HashMap<u32, &'static [u8]>> = OnceLock::new();
 static HOOK_ACTIVE: AtomicI32 = AtomicI32::new(0);
 
-// Embed 53 Turkish font atlases covering all 156 font descriptors for Range 2 (Latin Extended-A: 0x0100..0x0180)
+// Embed pre-compiled Turkish font atlases (156 entries covering Range 2 Latin Extended-A: 0x0100..0x0180)
 static ATLAS_BLOB: &[u8] = include_bytes!("../turkish_atlases.bin");
 
 fn init_atlases() -> &'static HashMap<u32, &'static [u8]> {
@@ -55,7 +56,17 @@ type FnReadFile = unsafe extern "system" fn(
     p_extra: *mut c_void,
 ) -> *mut c_void;
 
-static mut S_ORIG_READ_FILE: Option<FnReadFile> = None;
+static S_ORIG_READ_FILE: AtomicUsize = AtomicUsize::new(0);
+
+#[inline]
+unsafe fn get_orig_read_file() -> Option<FnReadFile> {
+    let ptr = S_ORIG_READ_FILE.load(Ordering::Acquire);
+    if ptr == 0 {
+        None
+    } else {
+        Some(std::mem::transmute::<usize, FnReadFile>(ptr))
+    }
+}
 
 unsafe extern "system" fn detour_read_file(
     p_archive: *mut c_void,
@@ -67,7 +78,7 @@ unsafe extern "system" fn detour_read_file(
     let atlases = init_atlases();
     if let Some(&atlas) = atlases.get(&file_id) {
         let mut orig_len: u32 = 0;
-        if let Some(orig) = S_ORIG_READ_FILE {
+        if let Some(orig) = get_orig_read_file() {
             let _ = orig(p_archive, file_id, flags, &mut orig_len, p_extra);
         }
 
@@ -85,7 +96,7 @@ unsafe extern "system" fn detour_read_file(
         return atlas.as_ptr() as *mut c_void;
     }
 
-    if let Some(orig) = S_ORIG_READ_FILE {
+    if let Some(orig) = get_orig_read_file() {
         orig(p_archive, file_id, flags, p_out_len, p_extra)
     } else {
         std::ptr::null_mut()
@@ -126,8 +137,18 @@ unsafe fn find_read_file_target() -> Option<*mut c_void> {
     ];
     let mask = "xxxxxxxxxxxxxxxxxxxxx";
 
-    let e_lfanew = *(h_gw2.add(0x3C) as *const i32) as usize;
-    let nt_header = h_gw2.add(e_lfanew);
+    // Validate DOS ("MZ") and NT ("PE\0\0") headers before scanning sections
+    if *(h_gw2 as *const u16) != 0x5A4D {
+        return None;
+    }
+    let e_lfanew = *(h_gw2.add(0x3C) as *const i32);
+    if e_lfanew <= 0 {
+        return None;
+    }
+    let nt_header = h_gw2.add(e_lfanew as usize);
+    if *(nt_header as *const u32) != 0x0000_4550 {
+        return None;
+    }
     let num_sections = *(nt_header.add(6) as *const u16) as usize;
     let size_of_opt_header = *(nt_header.add(20) as *const u16) as usize;
     let section_headers = nt_header.add(24 + size_of_opt_header);
@@ -145,7 +166,8 @@ unsafe fn find_read_file_target() -> Option<*mut c_void> {
         }
     }
 
-    Some(h_gw2.add(0xDBDDD0) as *mut c_void)
+    // Fail-closed: never hook an unverified hardcoded RVA if the signature did not match
+    None
 }
 
 fn is_font_injector_disabled() -> bool {
@@ -161,7 +183,7 @@ unsafe fn install_font_hook() {
     init_atlases();
     if let Some(target) = find_read_file_target() {
         if let Ok(orig) = MinHook::create_hook(target, detour_read_file as *mut c_void) {
-            S_ORIG_READ_FILE = Some(std::mem::transmute(orig));
+            S_ORIG_READ_FILE.store(orig as usize, Ordering::Release);
             if MinHook::enable_hook(target).is_ok() {
                 HOOK_ACTIVE.store(1, Ordering::SeqCst);
             }
@@ -198,15 +220,19 @@ pub unsafe extern "system" fn DllMain(
 ) -> BOOL {
     if reason == 1 {
         // DLL_PROCESS_ATTACH: Hook FileArchive::ReadFile if Turkish Font Injector is enabled
-        install_font_hook();
+        let _ = panic::catch_unwind(|| {
+            install_font_hook();
+        });
 
         // Spawn background thread to load Raidcore Nexus (d3d11.dll) smoothly
-        std::thread::spawn(|| {
-            std::thread::sleep(std::time::Duration::from_millis(50));
-            unsafe {
-                let d3d11 = wide("d3d11.dll");
-                LoadLibraryW(d3d11.as_ptr());
-            }
+        let _ = std::thread::spawn(|| {
+            let _ = panic::catch_unwind(|| {
+                std::thread::sleep(std::time::Duration::from_millis(50));
+                unsafe {
+                    let d3d11 = wide("d3d11.dll");
+                    LoadLibraryW(d3d11.as_ptr());
+                }
+            });
         });
     }
     TRUE

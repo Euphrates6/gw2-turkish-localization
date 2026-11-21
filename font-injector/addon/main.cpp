@@ -1,5 +1,6 @@
 #include "Nexus.h"
 #include <windows.h>
+#include <atomic>
 #include <unordered_map>
 #include <vector>
 #include <string>
@@ -24,6 +25,8 @@ static std::unordered_map<uint32_t, AtlasEntry> g_atlases;
 static std::vector<uint8_t> g_diskAtlasBlob;
 static const uint8_t* g_activeBlobPtr = nullptr;
 static size_t g_activeBlobSize = 0;
+static SRWLOCK g_atlasLock = SRWLOCK_INIT;
+static std::atomic<bool> g_unloading{false};
 
 // Function pointer typedef for FileArchive::ReadFile
 typedef void* (*FnFileArchive_ReadFile)(void* pArchive, uint32_t fileId, uint8_t flags, uint32_t* pOutLen, void* pExtra);
@@ -67,25 +70,38 @@ static bool IsEarlyBootHookActive()
 // Detour implementation
 void* Detour_ReadFile(void* pArchive, uint32_t fileId, uint8_t flags, uint32_t* pOutLen, void* pExtra)
 {
-    auto it = g_atlases.find(fileId);
-    if (it != g_atlases.end())
+    FnFileArchive_ReadFile origFn = s_orig_ReadFile;
+    if (!g_unloading.load(std::memory_order_acquire))
     {
-        uint32_t origLen = 0;
-        s_orig_ReadFile(pArchive, fileId, flags, &origLen, pExtra);
-
-        if (pOutLen) {
-            *pOutLen = it->second.size;
+        AtlasEntry foundEntry = { nullptr, 0 };
+        AcquireSRWLockShared(&g_atlasLock);
+        auto it = g_atlases.find(fileId);
+        if (it != g_atlases.end()) {
+            foundEntry = it->second;
         }
+        ReleaseSRWLockShared(&g_atlasLock);
 
-        if (pArchive) {
-            *(uint32_t*)((char*)pArchive + 0x98) = it->second.size;
-            *(uint32_t*)((char*)pArchive + 0xF4) = it->second.size;
+        if (foundEntry.data)
+        {
+            uint32_t origLen = 0;
+            if (origFn) {
+                origFn(pArchive, fileId, flags, &origLen, pExtra);
+            }
+
+            if (pOutLen) {
+                *pOutLen = foundEntry.size;
+            }
+
+            if (pArchive) {
+                *(uint32_t*)((char*)pArchive + 0x98) = foundEntry.size;
+                *(uint32_t*)((char*)pArchive + 0xF4) = foundEntry.size;
+            }
+
+            return (void*)foundEntry.data;
         }
-
-        return (void*)it->second.data;
     }
 
-    return s_orig_ReadFile(pArchive, fileId, flags, pOutLen, pExtra);
+    return origFn ? origFn(pArchive, fileId, flags, pOutLen, pExtra) : nullptr;
 }
 
 // Pattern scanner helper
@@ -219,6 +235,7 @@ void AddonLoad(AddonAPI_t* aAPI)
         return;
     }
 
+    g_unloading.store(false, std::memory_order_release);
     APIDefs->Log(LOGL_INFO, "TurkishFont", "Initializing GW2 Turkish Font Injector...");
 
     if (!LoadAtlasData()) {
@@ -269,7 +286,7 @@ void AddonLoad(AddonAPI_t* aAPI)
             status = APIDefs->MinHook_Enable(s_target_ReadFile);
             if (status == MH_OK) {
                 char msg[128];
-                snprintf(msg, sizeof(msg), "SUCCESS: FileArchive::ReadFile hooked at 0x%p (53 Turkish font atlases ready)", s_target_ReadFile);
+                snprintf(msg, sizeof(msg), "SUCCESS: FileArchive::ReadFile hooked at 0x%p (%zu Turkish font atlas entries ready)", s_target_ReadFile, g_atlases.size());
                 APIDefs->Log(LOGL_INFO, "TurkishFont", msg);
                 return;
             }
@@ -283,6 +300,8 @@ void AddonLoad(AddonAPI_t* aAPI)
 
 void AddonUnload()
 {
+    g_unloading.store(true, std::memory_order_release);
+
     if (APIDefs && s_target_ReadFile)
     {
         if (APIDefs->MinHook_Disable) {
@@ -294,12 +313,14 @@ void AddonUnload()
         APIDefs->Log(LOGL_INFO, "TurkishFont", "Addon unloaded, hook removed.");
     }
 
+    AcquireSRWLockExclusive(&g_atlasLock);
     s_target_ReadFile = nullptr;
     s_orig_ReadFile = nullptr;
     g_atlases.clear();
     g_diskAtlasBlob.clear();
     g_activeBlobPtr = nullptr;
     g_activeBlobSize = 0;
+    ReleaseSRWLockExclusive(&g_atlasLock);
 }
 
 static AddonDefinition_t AddonDef = {

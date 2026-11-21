@@ -330,6 +330,31 @@ def test_safe_install_and_version_consistency() -> None:
     print("[PASS] 8. Single VERSION source, PE DLL validation, and safe settings.toml merge + backup")
 
 
+def test_atlas_blob_integrity() -> None:
+    import struct
+
+    blob_path = ROOT / "font-injector" / "turkish_atlases.bin"
+    if not blob_path.is_file():
+        print("[SKIP] 9. Atlas blob integrity check (turkish_atlases.bin not present locally)")
+        return
+    data = blob_path.read_bytes()
+    assert len(data) > 4
+    (count,) = struct.unpack_from("<I", data, 0)
+    assert count == 156, f"Expected 156 atlas entries, got {count}"
+    offset = 4
+    seen_ids: set[int] = set()
+    for _ in range(count):
+        assert offset + 8 <= len(data)
+        file_id, length = struct.unpack_from("<II", data, offset)
+        offset += 8
+        assert length > 0 and offset + length <= len(data)
+        seen_ids.add(file_id)
+        offset += length
+    assert offset == len(data), f"Trailing bytes in atlas blob: {len(data) - offset}"
+    assert len(seen_ids) == 53, f"Expected 53 unique atlas fileIds, got {len(seen_ids)}"
+    print(f"[PASS] 9. Atlas blob integrity ({count} entries / {len(seen_ids)} unique fileIds, {len(data):,} bytes consumed cleanly)")
+
+
 if __name__ == "__main__":
     test_turkish_only_and_case()
     test_font_injector_6_char_fallback()
@@ -339,4 +364,5 @@ if __name__ == "__main__":
     test_stats_boons_and_conditions_protection()
     test_hub_font_injector_api_key_and_gemini()
     test_safe_install_and_version_consistency()
-    print("\nALL 8 TEST SUITES PASSED SUCCESSFULLY!")
+    test_atlas_blob_integrity()
+    print("\nALL 9 TEST SUITES PASSED SUCCESSFULLY!")
