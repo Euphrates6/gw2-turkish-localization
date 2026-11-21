@@ -633,6 +633,17 @@ class HubAPI:
             logs.append(f"BEKLENMEYEN HATA [{current_comp}]: {exc}")
             return {"ok": False, "failed_component": current_comp, "logs": logs, "status": self.get_status()}
 
+        # Clean up legacy early-boot version.dll proxy if no longer part of manifest
+        manifest_ids = {c.id for c in m.components}
+        if "loader.version_proxy" not in manifest_ids:
+            legacy_ver = self._game_dir / "version.dll"
+            if legacy_ver.is_file():
+                try:
+                    legacy_ver.unlink(missing_ok=True)
+                    logs.append("Eski version.dll proxy dosyası temizlendi (font enjektörü artık yalnızca Nexus üzerinden çalışır).")
+                except OSError:
+                    pass
+
         # Post-install configuration & preservation
         addons_dir = self._game_dir / "addons"
         tt_cfg_dir = addons_dir / "text_translator"

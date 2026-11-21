@@ -40,13 +40,15 @@ def build_local_translator_exe() -> None:
 
 
 def build_hub_exe(*, bundle_assets: bool = False) -> None:
-    """Builds GW2_TR_Hub.exe (default: lightweight ~15-20 MB manifest-driven Hub;
-    pass bundle_assets=True to embed TR/model and DLLs for legacy offline testing)."""
+    """Builds GW2_TR_Hub (--onedir to avoid PyInstaller --onefile AV false positives)
+    and packages dist/GW2_TR_Hub.zip (~15 MB lightweight manifest-driven Hub)."""
+    import zipfile
+
     icon_path = ROOT / "assets" / "app_icon.ico"
     cmd = [
         sys.executable, "-m", "PyInstaller",
         "--noconfirm",
-        "--onefile",
+        "--onedir",
         "--noconsole",
         "--name", "GW2_TR_Hub",
         "--paths", str(ROOT / "src"),
@@ -72,10 +74,15 @@ def build_hub_exe(*, bundle_assets: bool = False) -> None:
         ])
     cmd.append(str(ROOT / "hub" / "app.py"))
     run(cmd)
-    hub_out = ROOT / "dist" / "GW2_TR_Hub.exe"
-    if hub_out.is_file():
-        mode = "bundled-offline" if bundle_assets else "lightweight-manifest"
-        print(f"[+] Built ({mode}): {hub_out} ({hub_out.stat().st_size / (1024*1024):.1f} MB)")
+    hub_dir = ROOT / "dist" / "GW2_TR_Hub"
+    hub_zip = ROOT / "dist" / "GW2_TR_Hub.zip"
+    if hub_dir.is_dir():
+        with zipfile.ZipFile(hub_zip, "w", zipfile.ZIP_DEFLATED) as zf:
+            for p in sorted(hub_dir.rglob("*")):
+                if p.is_file():
+                    zf.write(p, p.relative_to(hub_dir.parent).as_posix())
+        mode = "bundled-offline" if bundle_assets else "lightweight-manifest-onedir"
+        print(f"[+] Built ({mode}): {hub_zip} ({hub_zip.stat().st_size / (1024*1024):.1f} MB)")
 
 
 if __name__ == "__main__":

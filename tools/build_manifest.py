@@ -54,7 +54,6 @@ def build_manifest(assets_dir: Path, version: str = VERSION, repo: str = manifes
         ("model.opus_mt_tr", "Çevrimdışı OPUS-MT Modeli", "mod", 20, True, "", False, "TR/model", "opus-mt-en-tr-ct2.zip", "", "zip"),
         ("addon.text_translator", "Text Translator Eklentisi", "game", 30, True, "", False, "addons/text_translator.dll", "text_translator.dll", "pe", ""),
         ("addon.font_injector", "Türkçe Font Enjektörü", "game", 31, False, "font_injector", False, "addons/turkish_font.dll", "turkish_font.dll", "pe", ""),
-        ("loader.version_proxy", "Early-Boot Font Proxy", "game", 32, False, "font_injector", False, "version.dll", "version.dll", "pe", ""),
     ]
 
     for cid, label, target, order, req, toggle, if_missing, rel_path, asset_name, validate, archive in specs:

@@ -7,7 +7,7 @@
 [![Game](https://img.shields.io/badge/Game-Guild%20Wars%202-red)](https://www.guildwars2.com/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20x64-blue)]()
 [![Framework](https://img.shields.io/badge/Addon%20Loader-Raidcore%20Nexus-orange)](https://raidcore.gg/Nexus)
-[![Release](https://img.shields.io/badge/Release-v0.12.0-brightgreen)](https://github.com/Euphrates6/gw2-turkish-localization/releases/latest)
+[![Release](https://img.shields.io/badge/Release-v0.13.0-brightgreen)](https://github.com/Euphrates6/gw2-turkish-localization/releases/latest)
 [![License](https://img.shields.io/badge/License-MIT-gray)](LICENSE)
 
 Guild Wars 2 için yerel (çevrimdışı) sinirsel çeviri motoru, bellek üzerinden Türkçe font desteği ve mod yönetim arayüzü sağlayan açık kaynaklı bir eklenti projesidir.
@@ -18,26 +18,29 @@ Guild Wars 2 için yerel (çevrimdışı) sinirsel çeviri motoru, bellek üzeri
 
 Proje üç ana bileşenden oluşmaktadır:
 
-* **Mod Yöneticisi (`GW2_TR_Hub.exe`):** Oyun dizinini tespit ederek Raidcore Nexus eklentilerini (`d3d11.dll`, `version.dll`), çeviri motorunu ve font enjektörünü kurar; kısayol tuşlarını ve çeviri ayarlarını yönetir.
+* **Mod Yöneticisi (`GW2_TR_Hub.zip`):** Oyun dizinini otomatik tespit eder; ilk kurulumda Raidcore Nexus (`d3d11.dll`), çeviri motoru, dil modeli ve font enjektörünü SHA-256 doğrulamalı olarak indirip kurar. Sonraki güncellemelerde yalnızca değişen bileşenleri indirir.
 * **Türkçe Font Enjektörü (`turkish_font.dll`):** Oyun dosyalarını (`Gw2.dat`) değiştirmeden, çalışma anında oyun belleğine (RAM) müdahale ederek Türkçe karakterlerin (`ç, ğ, ı, ö, ş, ü`) render edilmesini sağlar.
-* **Yerel Çeviri Motoru (`Local_Translator_TR.exe`):** CTranslate2 altyapısı ve OPUS-MT dil modeli ile arka planda yerel olarak çalışır. Oyun içi ekonomi, wiki ve rehber uyumluluğunu korumak amacıyla eşya adları, harita/bölge adları ve nitelik terimleri (stats, boons, conditions) orijinal İngilizce biçiminde tutulur; diyaloglar ve görev metinleri Türkçeye aktarılır.
+* **Yerel Çeviri Motoru (`Local_Translator_TR.exe`):** CTranslate2 altyapısı ve OPUS-MT dil modeli ile arka planda yerel (çevrimdışı) olarak çalışır. Oyun içi ekonomi, wiki ve rehber uyumluluğunu korumak amacıyla eşya adları, harita/bölge adları ve nitelik terimleri (stats, boons, conditions) orijinal İngilizce biçiminde tutulur; diyaloglar ve görev metinleri Türkçeye aktarılır.
 
 ---
 
 ## Kurulum
 
-### Yöntem 1: GW2-TR Hub ile Otomatik Kurulum (Önerilen)
+1. [Releases](https://github.com/Euphrates6/gw2-turkish-localization/releases/latest) sayfasından **`GW2_TR_Hub.zip`** (~14 MB) dosyasını indirin ve bir klasöre çıkartın.
+2. `GW2_TR_Hub/GW2_TR_Hub.exe` dosyasını çalıştırın.
+3. Program oyun klasörünü otomatik olarak algılayacaktır. Algılanamazsa `Gw2-64.exe` dosyasının bulunduğu dizini manuel olarak seçin.
+4. **"TÜMÜNÜ KUR / GÜNCELLE"** butonuna tıklayın (kurulum sırasında oyun kapalı olmalıdır).
+5. Kurulum tamamlandıktan sonra oyunu başlatın.
 
-1. [Releases](https://github.com/Euphrates6/gw2-turkish-localization/releases/latest) sayfasından `GW2_TR_Hub.exe` dosyasını indirin ve çalıştırın.
-2. Program oyun klasörünü otomatik olarak algılayacaktır. Algılanamazsa `Gw2-64.exe` dosyasının bulunduğu dizini manuel olarak seçin.
-3. "Bileşenleri Kur / Güncelle" butonuna tıklayın.
-4. Kurulum tamamlandıktan sonra oyunu başlatın.
+### Güvenlik ve SHA-256 Doğrulama
 
-### Yöntem 2: Manuel Kurulum
+İndirdiğiniz paketin bütünlüğünü sürüm notlarındaki SHA-256 değeriyle doğrulayabilirsiniz:
 
-1. [Releases](https://github.com/Euphrates6/gw2-turkish-localization/releases/latest) sayfasından `GW2_TR_v0.12.0_Manuel_Paket.zip` dosyasını indirin.
-2. Arşiv içerisindeki dosyaları (`d3d11.dll`, `version.dll`, `addons/`) Guild Wars 2 ana dizinine (`Gw2-64.exe` yanına) çıkartın.
-3. Oyunu başlatın.
+```powershell
+Get-FileHash .\GW2_TR_Hub.zip -Algorithm SHA256
+```
+
+*(Not: Uygulama açık kaynaklı ve imzasız olduğundan Windows SmartScreen ilk açılışta "Bilinmeyen yayımcı" bilgisi gösterebilir; "Ek bilgi → Yine de çalıştır" ile devam edebilirsiniz.)*
 
 ---
 

@@ -7,7 +7,7 @@
 [![Game](https://img.shields.io/badge/Game-Guild%20Wars%202-red)](https://www.guildwars2.com/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20x64-blue)]()
 [![Framework](https://img.shields.io/badge/Addon%20Loader-Raidcore%20Nexus-orange)](https://raidcore.gg/Nexus)
-[![Release](https://img.shields.io/badge/Release-v0.12.0-brightgreen)](https://github.com/Euphrates6/gw2-turkish-localization/releases/latest)
+[![Release](https://img.shields.io/badge/Release-v0.13.0-brightgreen)](https://github.com/Euphrates6/gw2-turkish-localization/releases/latest)
 [![License](https://img.shields.io/badge/License-MIT-gray)](LICENSE)
 
 An open-source mod project for Guild Wars 2 providing an offline neural machine translation engine, in-memory font injection for Turkish characters, and a desktop mod management hub.
@@ -18,26 +18,29 @@ An open-source mod project for Guild Wars 2 providing an offline neural machine 
 
 The project consists of three core components:
 
-* **Mod Manager (`GW2_TR_Hub.exe`):** Detects game installations, installs Raidcore Nexus addons (`d3d11.dll`, `version.dll`), configures hotkeys, and manages translation settings.
+* **Mod Manager (`GW2_TR_Hub.zip`):** Detects game installations, downloads and verifies Raidcore Nexus (`d3d11.dll`), the local translation engine, language model, and font injector via SHA-256 manifest, and applies incremental updates.
 * **Turkish Font Injector (`turkish_font.dll`):** Injects Turkish character rendering (`ç, ğ, ı, ö, ş, ü`) into game memory (RAM) at runtime without altering game data files (`Gw2.dat`).
-* **Local Translation Engine (`Local_Translator_TR.exe`):** Runs locally via CTranslate2 and OPUS-MT models. Item names, map locations, and gameplay attributes (stats, boons, conditions) are preserved in English for wiki and community compatibility, while dialogues and quest text are translated into Turkish.
+* **Local Translation Engine (`Local_Translator_TR.exe`):** Runs locally offline via CTranslate2 and OPUS-MT models. Item names, map locations, and gameplay attributes (stats, boons, conditions) are preserved in English for wiki and community compatibility, while dialogues and quest text are translated into Turkish.
 
 ---
 
 ## Installation
 
-### Method 1: Automated Setup via GW2-TR Hub (Recommended)
+1. Download **`GW2_TR_Hub.zip`** (~14 MB) from [Releases](https://github.com/Euphrates6/gw2-turkish-localization/releases/latest) and extract it to a folder.
+2. Run `GW2_TR_Hub/GW2_TR_Hub.exe`.
+3. The application will detect your game folder automatically. If not found, select the folder containing `Gw2-64.exe` manually.
+4. Click **"TÜMÜNÜ KUR / GÜNCELLE"** (make sure the game is closed first).
+5. Launch the game once installation is complete.
 
-1. Download and run `GW2_TR_Hub.exe` from [Releases](https://github.com/Euphrates6/gw2-turkish-localization/releases/latest).
-2. The application will detect your game folder automatically. If not found, select the folder containing `Gw2-64.exe` manually.
-3. Click "Install / Update Components".
-4. Launch the game once installation is complete.
+### Security & SHA-256 Verification
 
-### Method 2: Manual Installation
+You can verify the integrity of the downloaded archive against the SHA-256 checksum published in the release notes:
 
-1. Download `GW2_TR_v0.12.0_Manuel_Paket.zip` from [Releases](https://github.com/Euphrates6/gw2-turkish-localization/releases/latest).
-2. Extract all contents (`d3d11.dll`, `version.dll`, `addons/`) directly into your Guild Wars 2 root folder (alongside `Gw2-64.exe`).
-3. Launch the game normally.
+```powershell
+Get-FileHash .\GW2_TR_Hub.zip -Algorithm SHA256
+```
+
+*(Note: Because this open-source build is unsigned, Windows SmartScreen may show an "Unknown publisher" notice on first launch; click "More info → Run anyway".)*
 
 ---
 

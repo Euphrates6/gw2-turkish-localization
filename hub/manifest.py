@@ -13,7 +13,7 @@ from version import VERSION
 SCHEMA_VERSION = 1
 GITHUB_REPO = "Euphrates6/gw2-turkish-localization"
 MANIFEST_URL = f"https://github.com/{GITHUB_REPO}/releases/latest/download/manifest.json"
-HUB_DOWNLOAD_URL = f"https://github.com/{GITHUB_REPO}/releases/latest/download/GW2_TR_Hub.exe"
+HUB_DOWNLOAD_URL = f"https://github.com/{GITHUB_REPO}/releases/latest/download/GW2_TR_Hub.zip"
 RELEASES_URL = f"https://github.com/{GITHUB_REPO}/releases/latest"
 
 _SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
