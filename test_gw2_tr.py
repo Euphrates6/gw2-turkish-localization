@@ -377,7 +377,7 @@ def test_hub_update_checker() -> None:
 
     api = hub_app.HubAPI()
 
-    # 1. Newer release available
+    # 1. Newer release available (mock manifest 404 -> fallback to GitHub Releases API)
     newer_payload = {
         "tag_name": "v9.9.9",
         "name": "GW2-TR v9.9.9",
@@ -386,25 +386,26 @@ def test_hub_update_checker() -> None:
             {"name": "GW2_TR_Hub.exe", "browser_download_url": "https://example.com/GW2_TR_Hub.exe"},
         ],
     }
-    with mock_patch("urllib.request.urlopen", return_value=_FakeResp(newer_payload)):
-        res = api.check_for_updates()
-        assert res["ok"] is True
-        assert res["update_available"] is True
-        assert res["latest_version"] == "9.9.9"
-        assert res["download_url"] == "https://example.com/GW2_TR_Hub.exe"
+    with mock_patch.object(hub_app.manifest_mod, "fetch_manifest", side_effect=OSError("404")):
+        with mock_patch("urllib.request.urlopen", return_value=_FakeResp(newer_payload)):
+            res = api.check_for_updates()
+            assert res["ok"] is True
+            assert res["update_available"] is True
+            assert res["latest_version"] == "9.9.9"
+            assert res["download_url"] == "https://example.com/GW2_TR_Hub.exe"
 
-    # 2. Same version -> no update
-    same_payload = {"tag_name": f"v{hub_app.VERSION}", "html_url": "https://example.com/rel", "assets": []}
-    with mock_patch("urllib.request.urlopen", return_value=_FakeResp(same_payload)):
-        res_same = api.check_for_updates()
-        assert res_same["ok"] is True
-        assert res_same["update_available"] is False
+        # 2. Same version -> no update
+        same_payload = {"tag_name": f"v{hub_app.VERSION}", "html_url": "https://example.com/rel", "assets": []}
+        with mock_patch("urllib.request.urlopen", return_value=_FakeResp(same_payload)):
+            res_same = api.check_for_updates()
+            assert res_same["ok"] is True
+            assert res_same["update_available"] is False
 
-    # 3. Network failure -> graceful fallback
-    with mock_patch("urllib.request.urlopen", side_effect=OSError("offline")):
-        res_err = api.check_for_updates()
-        assert res_err["ok"] is False
-        assert res_err["update_available"] is False
+        # 3. Network failure -> graceful fallback
+        with mock_patch("urllib.request.urlopen", side_effect=OSError("offline")):
+            res_err = api.check_for_updates()
+            assert res_err["ok"] is False
+            assert res_err["update_available"] is False
 
     print("[PASS] 10. Hub GitHub Releases update checker (newer, up-to-date, offline fallback)")
 
@@ -551,6 +552,105 @@ def test_manifest_state_and_incremental_plan() -> None:
     print("[PASS] 14. Manifest schema, path traversal guard, InstallState journal, and incremental update planner")
 
 
+def test_downloader_zip_security_and_atomic_rollback() -> None:
+    import zipfile
+    from unittest.mock import patch as mock_patch
+    import downloader as dl_mod  # noqa: E402
+    import applier as app_mod  # noqa: E402
+    import manifest as manifest_mod  # noqa: E402
+    import state as state_mod  # noqa: E402
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        dl_dir = tmp_path / "downloads"
+        ext_dir = tmp_path / "extract"
+        game_dir = tmp_path / "gw2"
+        state_dir = tmp_path / "state"
+        game_dir.mkdir()
+
+        # 1. Zip path traversal must be blocked
+        evil_zip = tmp_path / "evil.zip"
+        with zipfile.ZipFile(evil_zip, "w") as zf:
+            zf.writestr("../escape.txt", b"EVIL")
+        try:
+            dl_mod.extract_zip_safe(evil_zip, ext_dir)
+            raise AssertionError("Expected zip path traversal rejection")
+        except dl_mod.DownloadError:
+            pass
+
+        # 2. Verified download + content-addressed dedupe
+        valid_pe = bytearray(20_000)
+        valid_pe[0:2] = b"MZ"
+        valid_pe[0x3C:0x40] = (0x80).to_bytes(4, "little")
+        valid_pe[0x80:0x84] = b"PE\x00\x00"
+        pe_bytes = bytes(valid_pe)
+        import hashlib
+        pe_sha = hashlib.sha256(pe_bytes).hexdigest()
+
+        class _ChunkResp:
+            status = 200
+            def __init__(self, data: bytes) -> None:
+                self._buf = data
+                self._pos = 0
+            def read(self, n: int = -1) -> bytes:
+                if self._pos >= len(self._buf):
+                    return b""
+                chunk = self._buf[self._pos:self._pos + n]
+                self._pos += len(chunk)
+                return chunk
+            def __enter__(self):
+                return self
+            def __exit__(self, *args):
+                return False
+
+        with mock_patch("urllib.request.urlopen", return_value=_ChunkResp(pe_bytes)) as m_open:
+            p1 = dl_mod.download_verified("https://example.com/a.dll", pe_sha, len(pe_bytes), dl_dir, validate="pe")
+            assert p1.is_file()
+            assert m_open.call_count == 1
+            # Second call reuses verified cached file without hitting network
+            p2 = dl_mod.download_verified("https://example.com/a.dll", pe_sha, len(pe_bytes), dl_dir, validate="pe")
+            assert p2 == p1
+            assert m_open.call_count == 1
+
+        # 3. Atomic apply + automatic rollback when a later component fails
+        existing_dll = game_dir / "addons" / "text_translator.dll"
+        existing_dll.parent.mkdir(parents=True)
+        existing_dll.write_bytes(b"ORIGINAL_V1_DLL")
+
+        raw_m = {
+            "schema_version": 1,
+            "version": "0.13.0",
+            "base_url": "https://example.com/dl/",
+            "install": {"targets": {"game": "{game_dir}"}},
+            "components": {
+                "c1": {
+                    "label": "First",
+                    "target": "game",
+                    "order": 1,
+                    "files": [{"path": "addons/text_translator.dll", "asset": "a.dll", "sha256": pe_sha, "size": len(pe_bytes)}],
+                },
+                "c2": {
+                    "label": "Missing Staged",
+                    "target": "game",
+                    "order": 2,
+                    "files": [{"path": "addons/turkish_font.dll", "asset": "b.dll", "sha256": "0" * 64, "size": 100}],
+                },
+            },
+        }
+        m = manifest_mod.validate_schema(raw_m)
+        plan = manifest_mod.plan_update(m, game_dir)
+        st = state_mod.InstallState(state_dir)
+        try:
+            # c1 succeeds, c2 is missing from staged_assets -> must roll back c1!
+            app_mod.apply_plan(plan, {pe_sha: p1}, game_dir, st)
+            raise AssertionError("Expected ApplyError and rollback")
+        except app_mod.ApplyError:
+            pass
+        assert existing_dll.read_bytes() == b"ORIGINAL_V1_DLL", "Rollback must restore original DLL!"
+
+    print("[PASS] 15. Verified downloader (dedupe + PE), zip traversal block, and atomic applier rollback")
+
+
 if __name__ == "__main__":
     test_turkish_only_and_case()
     test_font_injector_6_char_fallback()
@@ -564,4 +664,5 @@ if __name__ == "__main__":
     test_hub_update_checker()
     test_process_guard_glossary_preserve_and_perm_error()
     test_manifest_state_and_incremental_plan()
-    print("\nALL 12 TEST SUITES (14 CHECKS) PASSED SUCCESSFULLY!")
+    test_downloader_zip_security_and_atomic_rollback()
+    print("\nALL 13 TEST SUITES (15 CHECKS) PASSED SUCCESSFULLY!")

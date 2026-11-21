@@ -39,8 +39,9 @@ def build_local_translator_exe() -> None:
         print(f"[+] Built: {exe_out} ({exe_out.stat().st_size / (1024*1024):.1f} MB)")
 
 
-def build_hub_exe() -> None:
-    """Builds GW2_TR_Hub.exe (the pywebview + WebView2 IDE-themed Mod Installation Hub)."""
+def build_hub_exe(*, bundle_assets: bool = False) -> None:
+    """Builds GW2_TR_Hub.exe (default: lightweight ~15-20 MB manifest-driven Hub;
+    pass bundle_assets=True to embed TR/model and DLLs for legacy offline testing)."""
     icon_path = ROOT / "assets" / "app_icon.ico"
     cmd = [
         sys.executable, "-m", "PyInstaller",
@@ -55,20 +56,28 @@ def build_hub_exe() -> None:
         "--add-data", f"{ROOT / 'hub' / 'ui'};hub/ui",
         "--add-data", f"{ROOT / 'VERSION'};.",
         "--add-data", f"{ROOT / 'src'};src",
-        "--add-data", f"{ROOT / 'assets'};assets",
         "--add-data", f"{ROOT / 'TR' / 'glossary_tr.json'};TR",
         "--add-data", f"{ROOT / 'TR' / 'config.json'};TR",
         "--add-data", f"{ROOT / 'TR' / 'contributor.json'};TR",
-        "--add-data", f"{ROOT / 'TR' / 'model'};TR/model",
-        str(ROOT / "hub" / "app.py"),
     ]
+    if icon_path.is_file():
+        cmd.extend(["--add-data", f"{icon_path};assets"])
+    if bundle_assets:
+        cmd.extend([
+            "--add-data", f"{ROOT / 'assets'};assets",
+            "--add-data", f"{ROOT / 'TR' / 'model'};TR/model",
+        ])
+    cmd.append(str(ROOT / "hub" / "app.py"))
     run(cmd)
     hub_out = ROOT / "dist" / "GW2_TR_Hub.exe"
     if hub_out.is_file():
-        print(f"[+] Built: {hub_out} ({hub_out.stat().st_size / (1024*1024):.1f} MB)")
+        mode = "bundled-offline" if bundle_assets else "lightweight-manifest"
+        print(f"[+] Built ({mode}): {hub_out} ({hub_out.stat().st_size / (1024*1024):.1f} MB)")
 
 
 if __name__ == "__main__":
-    build_local_translator_exe()
-    build_hub_exe()
+    bundled = "--bundled" in sys.argv
+    if "--hub-only" not in sys.argv:
+        build_local_translator_exe()
+    build_hub_exe(bundle_assets=bundled)
 

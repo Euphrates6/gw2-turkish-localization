@@ -37,6 +37,10 @@ from patch_db import CachePatch, sync_key_tags  # noqa: E402
 import editor as editor_mod  # noqa: E402
 from version import VERSION  # noqa: E402
 import process_guard  # noqa: E402
+import manifest as manifest_mod  # noqa: E402
+import state as state_mod  # noqa: E402
+import downloader as downloader_mod  # noqa: E402
+import applier as applier_mod  # noqa: E402
 
 SCANCODE_TO_KEY = {
     1: "ESC", 2: "1", 3: "2", 4: "3", 5: "4", 6: "5", 7: "6", 8: "7", 9: "8", 10: "9", 11: "0",
@@ -497,16 +501,52 @@ class HubAPI:
         return {"ok": True}
 
     def check_for_updates(self) -> dict:
-        """Checks GitHub Releases for a newer version of GW2-TR without blocking startup."""
+        """Checks for updates via direct manifest.json release asset first (no API rate limit),
+        falling back to GitHub Releases API when manifest.json is not yet published (404)."""
         base = {
             "ok": False,
             "current_version": VERSION,
             "latest_version": VERSION,
             "update_available": False,
+            "manifest_available": False,
             "release_name": "",
             "release_url": GITHUB_RELEASES_URL,
-            "download_url": "",
+            "download_url": manifest_mod.HUB_DOWNLOAD_URL,
         }
+        # 1. Preferred: direct manifest.json (no api.github.com rate limit)
+        try:
+            m = manifest_mod.fetch_manifest(timeout=5.0)
+            update_available = _parse_semver(m.version) > _parse_semver(VERSION)
+            result = {
+                "ok": True,
+                "current_version": VERSION,
+                "latest_version": m.version,
+                "update_available": update_available,
+                "manifest_available": True,
+                "release_name": f"GW2-TR v{m.version}",
+                "release_url": m.notes_url,
+                "download_url": manifest_mod.HUB_DOWNLOAD_URL,
+            }
+            if self._game_dir and self._game_dir.is_dir():
+                cfg = self._read_tr_config()
+                st = state_mod.InstallState().load()
+                plan = manifest_mod.plan_update(
+                    m,
+                    self._game_dir,
+                    local_state=st,
+                    toggles={"font_injector": bool(cfg.get("font_injector", True))},
+                )
+                result["plan_summary"] = {
+                    "download_count": len(plan.download),
+                    "skip_count": len(plan.skip),
+                    "total_bytes": plan.total_bytes,
+                    "components": [it.component.id for it in plan.download],
+                }
+            return result
+        except Exception:
+            pass
+
+        # 2. Fallback: GitHub Releases API (e.g. v0.12.0 before manifest.json existed)
         try:
             req = urllib.request.Request(
                 GITHUB_LATEST_RELEASE_API,
@@ -532,6 +572,7 @@ class HubAPI:
                 "current_version": VERSION,
                 "latest_version": latest,
                 "update_available": update_available,
+                "manifest_available": False,
                 "release_name": release_name,
                 "release_url": release_url,
                 "download_url": download_url,
@@ -539,6 +580,70 @@ class HubAPI:
         except Exception as exc:
             base["error"] = str(exc)
             return base
+
+    def install_from_manifest(self, manifest_url: str = manifest_mod.MANIFEST_URL, state_root: Path | None = None) -> dict:
+        """Performs manifest-driven incremental install/update with SHA-256 verification and rollback."""
+        if not self._game_dir:
+            return {"ok": False, "logs": ["HATA: Guild Wars 2 klasörü seçilmedi!"]}
+        blockers = process_guard.blocking_processes()
+        if blockers:
+            return {
+                "ok": False,
+                "blocking_processes": blockers,
+                "logs": [f"HATA: Önce {', '.join(blockers)} kapatılmalı. Dosya kilitleri nedeniyle güncelleme iptal edildi."],
+                "status": self.get_status(),
+            }
+
+        logs: list[str] = []
+        cfg = self._read_tr_config()
+        st = state_mod.InstallState(state_root)
+        try:
+            m = manifest_mod.fetch_manifest(manifest_url, timeout=10.0)
+            plan = manifest_mod.plan_update(
+                m,
+                self._game_dir,
+                local_state=st.load(),
+                toggles={"font_injector": bool(cfg.get("font_injector", True))},
+            )
+            logs.append(
+                f"Manifest v{m.version} doğrulandı: {len(plan.download)} bileşen indirilecek "
+                f"({plan.total_bytes / (1024 * 1024):.1f} MB), {len(plan.skip)} bileşen güncel/atlandı."
+            )
+
+            staged: dict[str, Path] = {}
+            for item in plan.download:
+                logs.append(f"İndiriliyor: {item.component.label} ({item.file.size / (1024 * 1024):.1f} MB)...")
+                staged[item.file.sha256] = downloader_mod.download_verified(
+                    item.url,
+                    item.file.sha256,
+                    item.file.size,
+                    st.downloads_dir,
+                    validate=item.file.validate,
+                )
+
+            apply_res = applier_mod.apply_plan(plan, staged, self._game_dir, st)
+            logs.append(f"Bileşenler atomik olarak uygulandı ({apply_res['applied_count']} dosya güncellendi).")
+        except (downloader_mod.DownloadError, applier_mod.ApplyError, ValueError, Exception) as exc:
+            logs.append(f"HATA: {exc}")
+            return {"ok": False, "logs": logs, "status": self.get_status()}
+
+        # Post-install configuration & preservation
+        addons_dir = self._game_dir / "addons"
+        tt_cfg_dir = addons_dir / "text_translator"
+        mod_dir = tt_cfg_dir / "modules" / "local_translator_tr"
+        tr_dir = mod_dir / "TR"
+        tr_dir.mkdir(parents=True, exist_ok=True)
+        _merge_settings_toml(tt_cfg_dir / "settings.toml", list("local_translator_tr".encode("utf-8")))
+        self._write_tr_config(cfg)
+        self._update_addon_config(NEXUS_SIG_TEXT_TRANSLATOR, "Text Translator", True)
+        self._update_addon_config(NEXUS_SIG_TURKISH_FONT, "GW2 Turkish Font Injector", bool(cfg.get("font_injector", True)))
+        kb = self._read_keybind()
+        self.set_keybind(kb)
+        sync_res = self.sync_cache_characters()
+        if sync_res.get("changed"):
+            logs.append(sync_res["message"])
+
+        return {"ok": True, "version": m.version, "logs": logs, "status": self.get_status()}
 
     def launch_game(self) -> dict:
         if not self._game_dir or not (self._game_dir / "Gw2-64.exe").is_file():
