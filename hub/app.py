@@ -650,8 +650,34 @@ class HubAPI:
         mod_dir = tt_cfg_dir / "modules" / "local_translator_tr"
         tr_dir = mod_dir / "TR"
         tr_dir.mkdir(parents=True, exist_ok=True)
+
+        # Ensure module.toml exists so Text Translator discovers local_translator_tr
+        module_toml = (
+            'name = "Local Translator TR"\n'
+            'command = "Local_Translator_TR.exe"\n'
+            'args = ["--lang", "tr"]\n'
+        )
+        (mod_dir / "module.toml").write_text(module_toml, encoding="utf-8")
+        logs.append(f"Local Translator TR v{m.version} modülü (module.toml) yapılandırıldı.")
+
+        # Copy default glossary_tr.json only if user does not already have one
+        src_glossary = self._res_dir / "TR" / "glossary_tr.json"
+        dst_glossary = tr_dir / "glossary_tr.json"
+        if src_glossary.is_file() and not dst_glossary.is_file():
+            shutil.copy2(src_glossary, dst_glossary)
+            logs.append("Türkçe oyun sözlüğü (glossary_tr.json) kuruldu.")
+
+        # Sync turkish_font.disabled marker with current setting
+        disabled_marker = addons_dir / "turkish_font.disabled"
+        if cfg.get("font_injector", True):
+            disabled_marker.unlink(missing_ok=True)
+        else:
+            disabled_marker.write_text("disabled\n", encoding="utf-8")
+
         _merge_settings_toml(tt_cfg_dir / "settings.toml", list("local_translator_tr".encode("utf-8")))
         self._write_tr_config(cfg)
+        author, sk = self._read_contributor()
+        self._write_contributor(author, sk)
         self._update_addon_config(NEXUS_SIG_TEXT_TRANSLATOR, "Text Translator", True)
         self._update_addon_config(NEXUS_SIG_TURKISH_FONT, "GW2 Turkish Font Injector", bool(cfg.get("font_injector", True)))
         kb = self._read_keybind()

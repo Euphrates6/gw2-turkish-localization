@@ -648,6 +648,37 @@ def test_downloader_zip_security_and_atomic_rollback() -> None:
             pass
         assert existing_dll.read_bytes() == b"ORIGINAL_V1_DLL", "Rollback must restore original DLL!"
 
+        # 4. install_from_manifest must write module.toml, settings.toml, and preserve/create glossary_tr.json
+        res_dir = tmp_path / "res"
+        (res_dir / "TR").mkdir(parents=True)
+        (res_dir / "TR" / "glossary_tr.json").write_text('{"exact": {"Play": "Oyna"}, "terms": {}}', encoding="utf-8")
+        api = hub_app.HubAPI()
+        api._game_dir = game_dir
+        api._res_dir = res_dir
+        single_m = manifest_mod.validate_schema({
+            "schema_version": 1,
+            "version": "0.13.0",
+            "base_url": "https://example.com/dl/",
+            "install": {"targets": {"game": "{game_dir}"}},
+            "components": {
+                "c1": {
+                    "label": "First",
+                    "target": "game",
+                    "order": 1,
+                    "files": [{"path": "addons/text_translator.dll", "asset": "a.dll", "sha256": pe_sha, "size": len(pe_bytes)}],
+                },
+            },
+        })
+        with mock_patch.object(hub_app.process_guard, "blocking_processes", return_value=[]):
+            with mock_patch.object(hub_app.manifest_mod, "fetch_manifest", return_value=single_m):
+                with mock_patch.object(hub_app.downloader_mod, "download_verified", return_value=p1):
+                    res_m = api.install_from_manifest(state_root=tmp_path / "mstate")
+                    assert res_m["ok"] is True
+        mod_dir = game_dir / "addons" / "text_translator" / "modules" / "local_translator_tr"
+        assert (mod_dir / "module.toml").is_file(), "install_from_manifest must create module.toml"
+        assert 'command = "Local_Translator_TR.exe"' in (mod_dir / "module.toml").read_text(encoding="utf-8")
+        assert (mod_dir / "TR" / "glossary_tr.json").is_file()
+
     print("[PASS] 15. Verified downloader (dedupe + PE), zip traversal block, and atomic applier rollback")
 
 
