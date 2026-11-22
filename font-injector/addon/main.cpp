@@ -1,5 +1,6 @@
 #include "Nexus.h"
 #include <windows.h>
+#include <psapi.h>
 #include <atomic>
 #include <unordered_map>
 #include <vector>
@@ -104,26 +105,41 @@ void* Detour_ReadFile(void* pArchive, uint32_t fileId, uint8_t flags, uint32_t* 
     return origFn ? origFn(pArchive, fileId, flags, pOutLen, pExtra) : nullptr;
 }
 
-// Pattern scanner helper
+// Pattern scanner helper with authoritative mapped image bounds (K32GetModuleInformation)
 static uintptr_t FindPattern(HMODULE hMod, const unsigned char* pattern, const char* mask, size_t patternLen)
 {
     if (!hMod) return 0;
 
-    IMAGE_DOS_HEADER* dos = (IMAGE_DOS_HEADER*)hMod;
-    if (dos->e_magic != IMAGE_DOS_SIGNATURE) return 0;
+    MODULEINFO modInfo = {};
+    if (!K32GetModuleInformation(GetCurrentProcess(), hMod, &modInfo, sizeof(modInfo))) {
+        return 0;
+    }
+    const size_t imgSize = (size_t)modInfo.SizeOfImage;
+    const unsigned char* modBase = (const unsigned char*)modInfo.lpBaseOfDll;
+    if (!modBase || imgSize < sizeof(IMAGE_DOS_HEADER)) return 0;
 
-    IMAGE_NT_HEADERS* nt = (IMAGE_NT_HEADERS*)((char*)hMod + dos->e_lfanew);
+    IMAGE_DOS_HEADER* dos = (IMAGE_DOS_HEADER*)modBase;
+    if (dos->e_magic != IMAGE_DOS_SIGNATURE) return 0;
+    if (dos->e_lfanew <= 0 || (size_t)dos->e_lfanew + sizeof(IMAGE_NT_HEADERS) > imgSize) return 0;
+
+    IMAGE_NT_HEADERS* nt = (IMAGE_NT_HEADERS*)(modBase + dos->e_lfanew);
     if (nt->Signature != IMAGE_NT_SIGNATURE) return 0;
 
-    IMAGE_SECTION_HEADER* sec = IMAGE_FIRST_SECTION(nt);
+    size_t secTableOffset = (size_t)dos->e_lfanew + offsetof(IMAGE_NT_HEADERS, OptionalHeader) + nt->FileHeader.SizeOfOptionalHeader;
+    size_t secTableSize = (size_t)nt->FileHeader.NumberOfSections * sizeof(IMAGE_SECTION_HEADER);
+    if (secTableOffset > imgSize || secTableSize > imgSize - secTableOffset) return 0;
+
+    IMAGE_SECTION_HEADER* sec = (IMAGE_SECTION_HEADER*)(modBase + secTableOffset);
     for (WORD i = 0; i < nt->FileHeader.NumberOfSections; ++i, ++sec)
     {
         if (memcmp(sec->Name, ".text", 5) == 0)
         {
-            const unsigned char* base = (const unsigned char*)hMod + sec->VirtualAddress;
-            size_t size = sec->Misc.VirtualSize;
+            if (sec->VirtualAddress >= imgSize) continue;
+            const unsigned char* base = modBase + sec->VirtualAddress;
+            size_t maxAvail = imgSize - sec->VirtualAddress;
+            size_t size = sec->Misc.VirtualSize < maxAvail ? (size_t)sec->Misc.VirtualSize : maxAvail;
 
-            if (size < patternLen) return 0;
+            if (size < patternLen) continue;
 
             for (size_t j = 0; j <= size - patternLen; ++j)
             {

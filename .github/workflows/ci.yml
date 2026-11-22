@@ -26,7 +26,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Run GW2-TR unit & integration tests
+      - name: Run GW2-TR unit & integration tests (including canonical atlas integrity)
         run: python test_gw2_tr.py
 
       - name: Run modulep v2 protocol tests
@@ -38,13 +38,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Create placeholder atlas blob for compile check
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Verify canonical atlas SHA-256 and compile real turkish_font.dll
+        run: python build_all.py --dll-only
+
+      - name: Validate built turkish_font.dll PE header
+        run: |
+          python -c "import sys; from pathlib import Path; sys.path.insert(0,'src'); sys.path.insert(0,'hub'); import downloader; p=Path('font-injector/addon/turkish_font.dll'); assert downloader.validate_pe_file(p), 'Invalid PE DLL'; print('turkish_font.dll PE OK:', p.stat().st_size, 'bytes')"
+
+      - name: Stage canonical atlas and verify legacy Rust loader (cargo check --locked)
         shell: pwsh
         run: |
-          [System.IO.File]::WriteAllBytes("font-injector/loader/turkish_atlases.bin", [byte[]](0,0,0,0))
-
-      - name: Check Rust font loader (cargo check)
-        run: cargo check --manifest-path font-injector/loader/Cargo.toml
-
-      - name: Syntax-check C++ Nexus font addon (g++)
-        run: g++ -std=c++20 -fsyntax-only font-injector/addon/main.cpp -o NUL
+          Copy-Item font-injector/turkish_atlases.bin font-injector/loader/turkish_atlases.bin -Force
+          cargo check --locked --manifest-path font-injector/loader/Cargo.toml

@@ -1,3 +1,7 @@
+//! DEPRECATED / LEGACY: Optional early-boot `version.dll` proxy loader.
+//! Since GW2-TR v0.13.0, Turkish font injection runs solely through the Raidcore Nexus
+//! addon (`addons/turkish_font.dll`). This proxy is kept opt-in (`--legacy-proxy`) only.
+
 use std::collections::HashMap;
 use std::ffi::c_void;
 use std::panic;
@@ -8,13 +12,28 @@ use minhook::MinHook;
 
 type BOOL = i32;
 type HMODULE = isize;
+type HANDLE = isize;
 const TRUE: BOOL = 1;
+
+#[repr(C)]
+struct ModuleInfo {
+    lp_base_of_dll: *mut c_void,
+    size_of_image: u32,
+    entry_point: *mut c_void,
+}
 
 #[link(name = "kernel32")]
 extern "system" {
     fn LoadLibraryW(lpLibFileName: *const u16) -> HMODULE;
     fn GetProcAddress(hModule: HMODULE, lpProcName: *const u8) -> usize;
     fn GetModuleHandleW(lpModuleName: *const u16) -> HMODULE;
+    fn GetCurrentProcess() -> HANDLE;
+    fn K32GetModuleInformation(
+        hProcess: HANDLE,
+        hModule: HMODULE,
+        lpmodinfo: *mut ModuleInfo,
+        cb: u32,
+    ) -> BOOL;
 }
 
 static REAL_VERSION: OnceLock<HMODULE> = OnceLock::new();
@@ -125,8 +144,29 @@ unsafe fn find_pattern(base: *const u8, size: usize, pattern: &[u8], mask: &str)
 }
 
 unsafe fn find_read_file_target() -> Option<*mut c_void> {
-    let h_gw2 = GetModuleHandleW(std::ptr::null()) as *const u8;
-    if h_gw2.is_null() {
+    let h_mod = GetModuleHandleW(std::ptr::null());
+    if h_mod == 0 {
+        return None;
+    }
+
+    let mut mod_info = ModuleInfo {
+        lp_base_of_dll: std::ptr::null_mut(),
+        size_of_image: 0,
+        entry_point: std::ptr::null_mut(),
+    };
+    if K32GetModuleInformation(
+        GetCurrentProcess(),
+        h_mod,
+        &mut mod_info,
+        std::mem::size_of::<ModuleInfo>() as u32,
+    ) == 0
+    {
+        return None;
+    }
+
+    let img_size = mod_info.size_of_image as usize;
+    let h_gw2 = mod_info.lp_base_of_dll as *const u8;
+    if h_gw2.is_null() || img_size < 0x40 {
         return None;
     }
 
@@ -137,7 +177,7 @@ unsafe fn find_read_file_target() -> Option<*mut c_void> {
     ];
     let mask = "xxxxxxxxxxxxxxxxxxxxx";
 
-    // Validate DOS ("MZ") and NT ("PE\0\0") headers before scanning sections
+    // Validate DOS ("MZ") and NT ("PE\0\0") headers strictly within mapped image size
     if *(h_gw2 as *const u16) != 0x5A4D {
         return None;
     }
@@ -145,13 +185,22 @@ unsafe fn find_read_file_target() -> Option<*mut c_void> {
     if e_lfanew <= 0 {
         return None;
     }
-    let nt_header = h_gw2.add(e_lfanew as usize);
+    let lfanew = e_lfanew as usize;
+    if lfanew.checked_add(24).map_or(true, |end| end > img_size) {
+        return None;
+    }
+    let nt_header = h_gw2.add(lfanew);
     if *(nt_header as *const u32) != 0x0000_4550 {
         return None;
     }
     let num_sections = *(nt_header.add(6) as *const u16) as usize;
     let size_of_opt_header = *(nt_header.add(20) as *const u16) as usize;
-    let section_headers = nt_header.add(24 + size_of_opt_header);
+    let sec_table_offset = lfanew.checked_add(24)?.checked_add(size_of_opt_header)?;
+    let sec_table_end = sec_table_offset.checked_add(num_sections.checked_mul(40)?)?;
+    if sec_table_end > img_size {
+        return None;
+    }
+    let section_headers = h_gw2.add(sec_table_offset);
 
     for s in 0..num_sections {
         let sec = section_headers.add(s * 40);
@@ -159,8 +208,12 @@ unsafe fn find_read_file_target() -> Option<*mut c_void> {
         if sec_name.starts_with(b".text") {
             let virt_size = *(sec.add(8) as *const u32) as usize;
             let virt_addr = *(sec.add(12) as *const u32) as usize;
+            if virt_addr >= img_size {
+                continue;
+            }
+            let safe_size = virt_size.min(img_size - virt_addr);
             let text_base = h_gw2.add(virt_addr);
-            if let Some(offset) = find_pattern(text_base, virt_size, &pattern, mask) {
+            if let Some(offset) = find_pattern(text_base, safe_size, &pattern, mask) {
                 return Some(text_base.add(offset) as *mut c_void);
             }
         }

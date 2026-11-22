@@ -13,7 +13,6 @@ dist/
 
 # Rust / Cargo
 target/
-Cargo.lock
 
 # SQLite
 *.db
@@ -28,10 +27,11 @@ release_v*/
 *.log
 *.bak
 
-# Release-only model & compiled binary assets (distributed via GitHub Releases)
+# Release-only model & compiled binary assets (canonical font-injector/turkish_atlases.bin stays tracked)
 TR/model/
 font-injector/**/*.dll
-font-injector/**/turkish_atlases.bin
+font-injector/addon/turkish_atlases.bin
+font-injector/loader/turkish_atlases.bin
 font-injector/**/*.res
 
 # User state
