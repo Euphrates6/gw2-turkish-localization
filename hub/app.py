@@ -25,6 +25,11 @@ import urllib.request
 import webbrowser
 from pathlib import Path
 
+try:
+    import tomllib  # Python 3.11+
+except ImportError:  # pragma: no cover - Python 3.10 CI fallback
+    tomllib = None  # type: ignore[assignment]
+
 ROOT_DIR = Path(__file__).resolve().parent.parent
 SRC_DIR = ROOT_DIR / "src"
 HUB_DIR = Path(__file__).resolve().parent
@@ -118,31 +123,83 @@ def _safe_copy_with_backup(src: Path, dst: Path) -> bool:
     return True
 
 
-def _merge_settings_toml(settings_path: Path, folder_bytes: list[int]) -> None:
-    """Updates active_module in settings.toml while preserving existing user settings."""
-    active_line = f"active_module = {{ Windows = {folder_bytes} }}"
-    if settings_path.is_file():
+def _strip_active_module_toml(content: str) -> str:
+    """Removes any scalar `active_module = ...` entries and `[active_module]` table sections."""
+    lines = content.splitlines()
+    out: list[str] = []
+    in_active_section = False
+    in_active_scalar = False
+    scalar_depth = 0
+
+    for line in lines:
+        stripped = line.strip()
+
+        if in_active_scalar:
+            scalar_depth += line.count("{") + line.count("[") - line.count("}") - line.count("]")
+            if scalar_depth <= 0:
+                in_active_scalar = False
+                scalar_depth = 0
+            continue
+
+        header_match = re.match(r"^\[{1,2}\s*([^\]\s]+)\s*\]{1,2}(?:\s*#.*)?$", stripped)
+        if header_match:
+            section_name = header_match.group(1)
+            if section_name == "active_module" or section_name.startswith("active_module."):
+                in_active_section = True
+                continue
+            in_active_section = False
+            out.append(line)
+            continue
+
+        if in_active_section:
+            continue
+
+        if re.match(r"^\s*active_module\s*=", line):
+            depth = line.count("{") + line.count("[") - line.count("}") - line.count("]")
+            if depth > 0:
+                in_active_scalar = True
+                scalar_depth = depth
+            continue
+
+        out.append(line)
+
+    while out and not out[0].strip():
+        out.pop(0)
+    while out and not out[-1].strip():
+        out.pop()
+    return "\n".join(out)
+
+
+def _validate_settings_toml(content: str, folder_bytes: list[int]) -> bool:
+    """Verifies that merged settings.toml is valid TOML with a single active_module entry."""
+    occurrences = re.findall(
+        r"^\s*(?:active_module\s*=|\[{1,2}\s*active_module(?:\.|\s*\]))",
+        content,
+        flags=re.MULTILINE,
+    )
+    if len(occurrences) != 1:
+        return False
+    if tomllib is not None:
         try:
-            existing = settings_path.read_text(encoding="utf-8")
-            try:
-                shutil.copy2(settings_path, settings_path.with_name(settings_path.name + ".bak"))
-            except OSError:
-                pass
-            if re.search(r"^\s*active_module\s*=", existing, flags=re.MULTILINE):
-                merged = re.sub(
-                    r"^\s*active_module\s*=.*$",
-                    active_line,
-                    existing,
-                    count=1,
-                    flags=re.MULTILINE,
-                )
-            else:
-                merged = active_line + "\n" + existing
-            settings_path.write_text(merged, encoding="utf-8")
-            return
-        except OSError:
-            pass
-    settings_toml = (
+            parsed = tomllib.loads(content)
+        except Exception:
+            return False
+        if not isinstance(parsed, dict):
+            return False
+        if parsed.get("active_module") != {"Windows": list(folder_bytes)}:
+            return False
+    return True
+
+
+def _merge_settings_toml(settings_path: Path, folder_bytes: list[int]) -> None:
+    """Updates active_module in settings.toml while preserving existing user settings.
+
+    Handles both scalar (`active_module = { Windows = [...] }`) and table (`[active_module]`)
+    representations written by Text Translator, repairs duplicate `active_module` corruption,
+    and validates the final TOML before writing.
+    """
+    active_line = f"active_module = {{ Windows = {folder_bytes} }}"
+    default_toml = (
         f"{active_line}\n"
         "show_translated = true\n"
         "pause_refreshes = false\n"
@@ -151,7 +208,31 @@ def _merge_settings_toml(settings_path: Path, folder_bytes: list[int]) -> None:
         "secs = 0\n"
         "nanos = 500000000\n"
     )
-    settings_path.write_text(settings_toml, encoding="utf-8")
+
+    if settings_path.is_file():
+        try:
+            existing = settings_path.read_text(encoding="utf-8-sig")
+            try:
+                shutil.copy2(settings_path, settings_path.with_name(settings_path.name + ".bak"))
+            except OSError:
+                pass
+
+            cleaned = _strip_active_module_toml(existing)
+            merged = f"{active_line}\n{cleaned}\n" if cleaned else default_toml
+
+            if _validate_settings_toml(merged, folder_bytes):
+                settings_path.write_text(merged, encoding="utf-8")
+                return
+
+            # Existing file was unrecoverably corrupt TOML: back it up and rewrite clean defaults.
+            try:
+                shutil.copy2(settings_path, settings_path.with_name(settings_path.name + ".corrupt.bak"))
+            except OSError:
+                pass
+        except OSError:
+            pass
+
+    settings_path.write_text(default_toml, encoding="utf-8")
 
 
 def _detect_gw2_from_registry() -> list[Path]:
@@ -419,6 +500,9 @@ class HubAPI:
         for item in items:
             if isinstance(item, dict) and item.get("Signature") == sig:
                 item["IsLoaded"] = loaded
+                if loaded:
+                    item["IsDisabledUntilUpdate"] = False
+                    item["IsPermanentlyDisabled"] = False
                 found = True
         if not found:
             items.append({

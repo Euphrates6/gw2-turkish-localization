@@ -751,6 +751,100 @@ def test_fresh_config_empty_patch_guard_and_corrupt_json_backup() -> None:
     print("[PASS] 16. Fresh TR/config.json ('off'), empty patch index guard, and corrupt Nexus JSON backup")
 
 
+def test_settings_toml_table_merge_and_addon_reenable() -> None:
+    try:
+        import tomllib
+    except ImportError:
+        tomllib = None
+
+    folder_bytes = list("local_translator_tr".encode("utf-8"))
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+
+        # 1. Text Translator writes [active_module] table format -> merge must NOT create duplicate key
+        table_toml = tmp_path / "settings_table.toml"
+        table_toml.write_text(
+            "show_translated = true\n"
+            "pause_refreshes = false\n"
+            "pause_translations = false\n\n"
+            "[active_module]\n"
+            "Windows = [1, 2, 3]\n\n"
+            "[refresh_debounce]\n"
+            "secs = 0\n"
+            "nanos = 500000000\n",
+            encoding="utf-8",
+        )
+        hub_app._merge_settings_toml(table_toml, folder_bytes)
+        out1 = table_toml.read_text(encoding="utf-8")
+        assert "[active_module]" not in out1, f"Stale [active_module] table remained:\n{out1}"
+        assert f"active_module = {{ Windows = {folder_bytes} }}" in out1
+        assert "[refresh_debounce]" in out1
+        if tomllib is not None:
+            parsed1 = tomllib.loads(out1)
+            assert parsed1["active_module"] == {"Windows": folder_bytes}
+            assert parsed1["show_translated"] is True
+            assert parsed1["refresh_debounce"] == {"secs": 0, "nanos": 500000000}
+
+        # 2. Already-corrupted settings.toml (both scalar + [active_module] table) self-heals on update
+        dup_toml = tmp_path / "settings_dup.toml"
+        dup_toml.write_text(
+            f"active_module = {{ Windows = {folder_bytes} }}\n"
+            "show_translated = true\n\n"
+            "[refresh_debounce]\n"
+            "secs = 0\n"
+            "nanos = 500000000\n\n"
+            "[active_module]\n"
+            "Windows = [108, 111, 99]\n",
+            encoding="utf-8",
+        )
+        hub_app._merge_settings_toml(dup_toml, folder_bytes)
+        out2 = dup_toml.read_text(encoding="utf-8")
+        assert "[active_module]" not in out2
+        assert out2.count("active_module") == 1
+        if tomllib is not None:
+            parsed2 = tomllib.loads(out2)
+            assert parsed2["active_module"] == {"Windows": folder_bytes}
+            assert parsed2["refresh_debounce"]["nanos"] == 500000000
+
+        # 3. Unparseable settings.toml backs up to .corrupt.bak and writes clean defaults (Python 3.11+)
+        if tomllib is not None:
+            bad_toml = tmp_path / "settings_bad.toml"
+            bad_toml.write_text("show_translated = [unterminated\n", encoding="utf-8")
+            hub_app._merge_settings_toml(bad_toml, folder_bytes)
+            assert bad_toml.with_name("settings_bad.toml.corrupt.bak").is_file()
+            parsed3 = tomllib.loads(bad_toml.read_text(encoding="utf-8"))
+            assert parsed3["active_module"] == {"Windows": folder_bytes}
+            assert parsed3["show_translated"] is True
+
+        # 4. _update_addon_config clears IsDisabledUntilUpdate and IsPermanentlyDisabled when re-enabling
+        gw2_dir = tmp_path / "gw2"
+        nexus_dir = gw2_dir / "addons" / "Nexus"
+        nexus_dir.mkdir(parents=True)
+        (gw2_dir / "Gw2-64.exe").write_bytes(b"MZ")
+        addon_cfg = nexus_dir / "AddonConfig.json"
+        addon_cfg.write_text(
+            json.dumps([{
+                "AllowUpdates": True,
+                "IsDisabledUntilUpdate": True,
+                "IsLoaded": False,
+                "IsPermanentlyDisabled": True,
+                "Name": "Text Translator",
+                "Signature": hub_app.NEXUS_SIG_TEXT_TRANSLATOR,
+            }]),
+            encoding="utf-8",
+        )
+        api = hub_app.HubAPI()
+        api._game_dir = gw2_dir
+        api._update_addon_config(hub_app.NEXUS_SIG_TEXT_TRANSLATOR, "Text Translator", True)
+        updated = json.loads(addon_cfg.read_text(encoding="utf-8"))
+        assert updated[0]["IsLoaded"] is True
+        assert updated[0]["IsDisabledUntilUpdate"] is False
+        assert updated[0]["IsPermanentlyDisabled"] is False
+
+    print("[PASS] 17. settings.toml [active_module] table merge / duplicate self-heal & AddonConfig flag reset")
+
+
 if __name__ == "__main__":
     test_turkish_only_and_case()
     test_font_injector_6_char_fallback()
@@ -766,4 +860,5 @@ if __name__ == "__main__":
     test_manifest_state_and_incremental_plan()
     test_downloader_zip_security_and_atomic_rollback()
     test_fresh_config_empty_patch_guard_and_corrupt_json_backup()
-    print("\nALL 14 TEST SUITES (16 CHECKS) PASSED SUCCESSFULLY!")
+    test_settings_toml_table_merge_and_addon_reenable()
+    print("\nALL 15 TEST SUITES (17 CHECKS) PASSED SUCCESSFULLY!")

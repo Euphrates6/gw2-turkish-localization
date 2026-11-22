@@ -7,7 +7,7 @@
 [![Game](https://img.shields.io/badge/Game-Guild%20Wars%202-red)](https://www.guildwars2.com/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20x64-blue)]()
 [![Framework](https://img.shields.io/badge/Addon%20Loader-Raidcore%20Nexus-orange)](https://raidcore.gg/Nexus)
-[![Release](https://img.shields.io/badge/Release-v0.13.2-brightgreen)](https://github.com/Euphrates6/gw2-turkish-localization/releases/latest)
+[![Release](https://img.shields.io/badge/Release-v0.13.3-brightgreen)](https://github.com/Euphrates6/gw2-turkish-localization/releases/latest)
 [![License](https://img.shields.io/badge/License-MIT-gray)](LICENSE)
 
 An open-source mod project for Guild Wars 2 providing an offline neural machine translation engine, in-memory font injection for Turkish characters, and a desktop mod management hub.
