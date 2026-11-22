@@ -66,7 +66,13 @@ def running_process_names() -> set[str]:
     return names
 
 
-def blocking_processes(running: set[str] | None = None) -> list[str]:
+def blocking_processes(
+    running: set[str] | None = None,
+    extra_names: tuple[str, ...] | list[str] | set[str] | None = None,
+) -> list[str]:
     """Returns sorted list of running processes that would lock GW2-TR files."""
     active = running_process_names() if running is None else {p.lower() for p in running}
-    return sorted(BLOCKING_PROCESSES & active)
+    blocked = set(BLOCKING_PROCESSES)
+    if extra_names:
+        blocked.update(str(x).lower() for x in extra_names if x)
+    return sorted(blocked & active)

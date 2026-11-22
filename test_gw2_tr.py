@@ -490,9 +490,9 @@ def test_manifest_state_and_incremental_plan() -> None:
             zf.writestr("source.spm", b"SPM_BYTES_V1")
 
         # 1. Build & validate manifest via tools/build_manifest.py
-        raw_manifest = bm.build_manifest(assets_dir, version="0.13.0")
+        raw_manifest = bm.build_manifest(assets_dir, version="0.13.1", allow_partial=True)
         m = manifest_mod.validate_schema(raw_manifest)
-        assert m.version == "0.13.0"
+        assert m.version == "0.13.1"
         assert len(m.components) == 4
         assert [c.id for c in m.components] == [
             "nexus",
@@ -501,12 +501,35 @@ def test_manifest_state_and_incremental_plan() -> None:
             "addon.font_injector",
         ]
 
-        # 2. Path traversal in manifest must be rejected
+        # 1b. build_manifest must fail-fast when required assets are missing (without allow_partial)
+        try:
+            bm.build_manifest(assets_dir, version="0.13.1", allow_partial=False)
+            raise AssertionError("Expected FileNotFoundError for missing Local_Translator_TR.exe")
+        except FileNotFoundError:
+            pass
+
+        # 2. Path traversal in file path AND component id AND untrusted base_url must be rejected
         bad_manifest = json.loads(json.dumps(raw_manifest))
         bad_manifest["components"]["addon.text_translator"]["files"][0]["path"] = "../../evil.dll"
         try:
             manifest_mod.validate_schema(bad_manifest)
             raise AssertionError("Expected path traversal rejection")
+        except ValueError:
+            pass
+
+        bad_comp_id = json.loads(json.dumps(raw_manifest))
+        bad_comp_id["components"]["../../../Documents"] = bad_comp_id["components"].pop("nexus")
+        try:
+            manifest_mod.validate_schema(bad_comp_id)
+            raise AssertionError("Expected component id traversal rejection")
+        except ValueError:
+            pass
+
+        bad_url = json.loads(json.dumps(raw_manifest))
+        bad_url["base_url"] = "https://evil.example.com/releases/"
+        try:
+            manifest_mod.validate_schema(bad_url)
+            raise AssertionError("Expected untrusted base_url rejection")
         except ValueError:
             pass
 
@@ -578,13 +601,25 @@ def test_downloader_zip_security_and_atomic_rollback() -> None:
         except dl_mod.DownloadError:
             pass
 
+        # 1b. Undeclared member in ZIP must be rejected when expected_members is specified
+        extra_zip = tmp_path / "extra.zip"
+        with zipfile.ZipFile(extra_zip, "w") as zf:
+            zf.writestr("allowed.bin", b"OK")
+            zf.writestr("sneaky.dll", b"UNDECLARED")
+        import hashlib
+        ok_member = manifest_mod.ArchiveMember(name="allowed.bin", sha256=hashlib.sha256(b"OK").hexdigest(), size=2)
+        try:
+            dl_mod.extract_zip_safe(extra_zip, ext_dir, expected_members=(ok_member,))
+            raise AssertionError("Expected undeclared zip member rejection")
+        except dl_mod.DownloadError:
+            pass
+
         # 2. Verified download + content-addressed dedupe
         valid_pe = bytearray(20_000)
         valid_pe[0:2] = b"MZ"
         valid_pe[0x3C:0x40] = (0x80).to_bytes(4, "little")
         valid_pe[0x80:0x84] = b"PE\x00\x00"
         pe_bytes = bytes(valid_pe)
-        import hashlib
         pe_sha = hashlib.sha256(pe_bytes).hexdigest()
 
         class _ChunkResp:
@@ -619,8 +654,8 @@ def test_downloader_zip_security_and_atomic_rollback() -> None:
 
         raw_m = {
             "schema_version": 1,
-            "version": "0.13.0",
-            "base_url": "https://example.com/dl/",
+            "version": "0.13.1",
+            "base_url": manifest_mod.ALLOWED_BASE_PREFIX + "v0.13.1/",
             "install": {"targets": {"game": "{game_dir}"}},
             "components": {
                 "c1": {
@@ -657,8 +692,8 @@ def test_downloader_zip_security_and_atomic_rollback() -> None:
         api._res_dir = res_dir
         single_m = manifest_mod.validate_schema({
             "schema_version": 1,
-            "version": "0.13.0",
-            "base_url": "https://example.com/dl/",
+            "version": "0.13.1",
+            "base_url": manifest_mod.ALLOWED_BASE_PREFIX + "v0.13.1/",
             "install": {"targets": {"game": "{game_dir}"}},
             "components": {
                 "c1": {
@@ -682,6 +717,40 @@ def test_downloader_zip_security_and_atomic_rollback() -> None:
     print("[PASS] 15. Verified downloader (dedupe + PE), zip traversal block, and atomic applier rollback")
 
 
+def test_fresh_config_empty_patch_guard_and_corrupt_json_backup() -> None:
+    # 1. Shipped TR/config.json must default to char_mode='off' with font_injector=True
+    shipped_cfg = json.loads((ROOT / "TR" / "config.json").read_text(encoding="utf-8-sig"))
+    assert shipped_cfg["font_injector"] is True
+    assert shipped_cfg["char_mode"] == "off", f"Expected shipped char_mode='off', got {shipped_cfg['char_mode']!r}"
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+
+        # 2. Empty patch index must NOT wipe existing local patches
+        p = CachePatch(tmp_path / "patch_tr.db", "tr", 1)
+        p.writer.execute("INSERT INTO patch (key, kind, text, src_hash, piece, version) VALUES (42, 0, 'Merhaba', 1, 0, 1)")
+        p.writer.commit()
+        res = p.update_pieces({"format": 1, "version": 1, "glossary": "", "width": 20000, "pieces": {}}, {}, [], "abc")
+        assert res is None
+        cnt = p.writer.execute("SELECT COUNT(*) FROM patch").fetchone()[0]
+        assert cnt == 1, f"Empty patch index wiped local patch rows! (count={cnt})"
+        p.close()
+
+        # 3. Corrupt AddonConfig.json must be backed up to .corrupt.bak before rewrite
+        gw2_dir = tmp_path / "gw2"
+        nexus_dir = gw2_dir / "addons" / "Nexus"
+        nexus_dir.mkdir(parents=True)
+        (gw2_dir / "Gw2-64.exe").write_bytes(b"MZ")
+        addon_cfg = nexus_dir / "AddonConfig.json"
+        addon_cfg.write_text("{corrupt json", encoding="utf-8")
+        api = hub_app.HubAPI()
+        api._game_dir = gw2_dir
+        api._update_addon_config(12345, "TestAddon", True)
+        assert (nexus_dir / "AddonConfig.json.corrupt.bak").is_file()
+
+    print("[PASS] 16. Fresh TR/config.json ('off'), empty patch index guard, and corrupt Nexus JSON backup")
+
+
 if __name__ == "__main__":
     test_turkish_only_and_case()
     test_font_injector_6_char_fallback()
@@ -696,4 +765,5 @@ if __name__ == "__main__":
     test_process_guard_glossary_preserve_and_perm_error()
     test_manifest_state_and_incremental_plan()
     test_downloader_zip_security_and_atomic_rollback()
-    print("\nALL 13 TEST SUITES (15 CHECKS) PASSED SUCCESSFULLY!")
+    test_fresh_config_empty_patch_guard_and_corrupt_json_backup()
+    print("\nALL 14 TEST SUITES (16 CHECKS) PASSED SUCCESSFULLY!")

@@ -7,7 +7,7 @@
 [![Game](https://img.shields.io/badge/Game-Guild%20Wars%202-red)](https://www.guildwars2.com/)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20x64-blue)]()
 [![Framework](https://img.shields.io/badge/Addon%20Loader-Raidcore%20Nexus-orange)](https://raidcore.gg/Nexus)
-[![Release](https://img.shields.io/badge/Release-v0.13.0-brightgreen)](https://github.com/Euphrates6/gw2-turkish-localization/releases/latest)
+[![Release](https://img.shields.io/badge/Release-v0.13.1-brightgreen)](https://github.com/Euphrates6/gw2-turkish-localization/releases/latest)
 [![License](https://img.shields.io/badge/License-MIT-gray)](LICENSE)
 
 Guild Wars 2 için yerel (çevrimdışı) sinirsel çeviri motoru, bellek üzerinden Türkçe font desteği ve mod yönetim arayüzü sağlayan açık kaynaklı bir eklenti projesidir.
@@ -40,7 +40,7 @@ Kurulum sonrası çeviri **tamamen çevrimdışı** çalışır.
 ### Güncelleme ve Kaldırma
 
 * **Güncelleme:** Yeni sürüm çıktığında Hub açılışta üstte bildirim gösterir. Oyunu kapatıp güncelleyin; yalnızca değişen bileşenler indirilir. Kişisel ayarlarınız, sözlüğünüz ve önbelleğiniz korunur.
-* **Kaldırma:** Hub içindeki **Kaldır** butonunu kullanın (`Gw2.dat` oyun dosyalarına dokunulmaz). Yedekler `%LOCALAPPDATA%\GW2_TR_Hub\backups` altında tutulur.
+* **Kaldırma:** Hub içindeki **MODU KALDIR** butonunu kullanın (`Gw2.dat` oyun dosyalarına dokunulmaz; modül klasörü temizlenir). Güncelleme sırasında üzerine yazılan dosyaların yedekleri `%LOCALAPPDATA%\GW2_TR_Hub\backups` altında tutulur.
 
 ### Sorun Giderme
 
@@ -91,7 +91,7 @@ Hata bildirimleri, sözlük (`TR/glossary_tr.json`) iyileştirmeleri ve Pull Req
 
 ## Gizlilik ve Kullanım Koşulları (ToS)
 
-* **Gizlilik:** Çeviri motoru varsayılan olarak tamamen **çevrimdışı (yerel)** çalışır. Telemetri veya otomatik veri gönderimi (`map_upload.py`) kapalıdır; yalnızca isteğe bağlı bir bulut motoru (Google/DeepL/Gemini/OpenAI) seçerseniz ilgili sağlayıcıya çevrilecek metinler gönderilir.
+* **Gizlilik:** Çeviri motoru varsayılan olarak yerel (**çevrimdışı**) çalışır; oyun metinleri dışarı gönderilmez (`map_upload.py` kapalıdır). Yalnızca isteğe bağlı bir bulut motoru seçerseniz çevrilecek metinler ilgili sağlayıcıya gider. Arka planda sözlük/yama güncelleme kontrolü GitHub üzerinden yapılır (`TR/config.json` içine `"auto_update": false` ekleyerek tamamen kapatabilirsiniz).
 * **ArenaNet ToS Uyarısı:** Bu proje üçüncü parti Raidcore Nexus eklenti yükleyicisini ve çalışma anında bellek (RAM) üzerinden Türkçe font enjeksiyonunu kullanır. Oyun dosyalarını (`Gw2.dat`) değiştirmez ve oynanış avantajı sağlamaz; ancak tüm üçüncü parti eklentilerde olduğu gibi **kullanım tamamen kendi sorumluluğunuzdadır**.
 
 ---

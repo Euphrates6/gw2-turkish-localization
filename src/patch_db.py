@@ -664,6 +664,9 @@ class CachePatch:
 
     def update_pieces(self, index: dict, files: dict[str, Path], removed: list[str],
                       commit: str) -> set[int] | None:
+        if not index.get("pieces"):
+            log.info("patch index has no pieces; preserving local patch database")
+            return None
         width = index["width"]
         with self.lock:
             con = self.writer

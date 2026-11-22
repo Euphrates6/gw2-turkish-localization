@@ -44,9 +44,16 @@ def inspect_zip_members(zip_path: Path) -> list[dict]:
     return members
 
 
-def build_manifest(assets_dir: Path, version: str = VERSION, repo: str = manifest_mod.GITHUB_REPO) -> dict:
+def build_manifest(
+    assets_dir: Path,
+    version: str = VERSION,
+    repo: str = manifest_mod.GITHUB_REPO,
+    *,
+    allow_partial: bool = False,
+) -> dict:
     tag = f"v{version.lstrip('vV')}"
     components: dict[str, dict] = {}
+    missing_assets: list[str] = []
 
     specs = [
         ("nexus", "Raidcore Nexus", "game", 5, True, "", True, "d3d11.dll", "d3d11.dll", "pe", ""),
@@ -59,6 +66,7 @@ def build_manifest(assets_dir: Path, version: str = VERSION, repo: str = manifes
     for cid, label, target, order, req, toggle, if_missing, rel_path, asset_name, validate, archive in specs:
         asset_path = assets_dir / asset_name
         if not asset_path.is_file():
+            missing_assets.append(asset_name)
             continue
         fentry: dict = {
             "path": rel_path,
@@ -85,6 +93,12 @@ def build_manifest(assets_dir: Path, version: str = VERSION, repo: str = manifes
             comp["if_missing"] = True
         components[cid] = comp
 
+    if missing_assets and not allow_partial:
+        raise FileNotFoundError(
+            f"Missing required release assets in {assets_dir}: {', '.join(missing_assets)} "
+            "(pass --allow-partial to override)"
+        )
+
     data = {
         "schema_version": manifest_mod.SCHEMA_VERSION,
         "version": version.lstrip("vV"),
@@ -108,8 +122,8 @@ def build_manifest(assets_dir: Path, version: str = VERSION, repo: str = manifes
             "{mod}/TR/map_tr.db",
             "{mod}/cache.db",
             "{cfg}/settings.toml",
-            "{game}/addons/Nexus/AddonConfig.json",
-            "{game}/addons/Nexus/InputBinds.json",
+            "{game_dir}/addons/Nexus/AddonConfig.json",
+            "{game_dir}/addons/Nexus/InputBinds.json",
         ],
         "components": components,
     }
@@ -122,10 +136,11 @@ def main() -> int:
     parser.add_argument("--assets-dir", type=Path, required=True, help="Directory containing release asset files")
     parser.add_argument("--out", type=Path, default=None, help="Output manifest.json path (default: <assets-dir>/manifest.json)")
     parser.add_argument("--version", type=str, default=VERSION, help="Release version (default: VERSION file)")
+    parser.add_argument("--allow-partial", action="store_true", help="Allow generating manifest when some assets are missing")
     args = parser.parse_args()
 
     out_path = args.out or (args.assets_dir / "manifest.json")
-    data = build_manifest(args.assets_dir, version=args.version)
+    data = build_manifest(args.assets_dir, version=args.version, allow_partial=args.allow_partial)
     encoded = (json.dumps(data, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
     out_path.write_bytes(encoded)
     sha = sha256_bytes(encoded)

@@ -145,6 +145,8 @@ def extract_zip_safe(
         shutil.rmtree(dest_dir, ignore_errors=True)
     dest_dir.mkdir(parents=True, exist_ok=True)
 
+    allowed_names = {m.name.replace("\\", "/") for m in expected_members} if expected_members else None
+
     extracted: list[Path] = []
     with zipfile.ZipFile(zip_path, "r") as zf:
         for info in zf.infolist():
@@ -153,6 +155,9 @@ def extract_zip_safe(
             # Reject Unix symlinks stored in zip external attributes
             if (info.external_attr >> 16) & 0o170000 == 0o120000:
                 raise DownloadError(f"symlink not allowed in archive: {info.filename!r}")
+            norm_name = info.filename.replace("\\", "/")
+            if allowed_names is not None and norm_name not in allowed_names:
+                raise DownloadError(f"undeclared member in archive rejected: {info.filename!r}")
             target = _safe_zip_member_path(dest_dir, info.filename)
             target.parent.mkdir(parents=True, exist_ok=True)
             with zf.open(info, "r") as src, target.open("wb") as dst:

@@ -310,7 +310,7 @@ class HubAPI:
         if self._game_dir and (self._game_dir / "addons" / "turkish_font.disabled").is_file():
             cfg["font_injector"] = False
             cfg["char_mode"] = "ascii_6"
-        elif cfg.get("font_injector", True) and cfg.get("char_mode") in ("", None):
+        elif cfg.get("font_injector", True) and cfg.get("char_mode") in ("", None, "smart"):
             cfg["char_mode"] = "off"
         return cfg
 
@@ -407,7 +407,13 @@ class HubAPI:
                 raw = json.loads(cfg_path.read_text(encoding="utf-8-sig"))
                 if isinstance(raw, list):
                     items = raw
+                else:
+                    shutil.copy2(cfg_path, cfg_path.with_name(cfg_path.name + ".corrupt.bak"))
             except Exception:
+                try:
+                    shutil.copy2(cfg_path, cfg_path.with_name(cfg_path.name + ".corrupt.bak"))
+                except OSError:
+                    pass
                 items = []
         found = False
         for item in items:
@@ -624,6 +630,14 @@ class HubAPI:
                 )
 
             current_comp = "apply_plan"
+            mid_blockers = process_guard.blocking_processes(extra_names=m.block_if_running)
+            if mid_blockers:
+                return {
+                    "ok": False,
+                    "blocking_processes": mid_blockers,
+                    "logs": logs + [f"HATA: İndirme sırasında {', '.join(mid_blockers)} açıldı. Uygulama iptal edildi."],
+                    "status": self.get_status(),
+                }
             apply_res = applier_mod.apply_plan(plan, staged, self._game_dir, st)
             logs.append(f"Bileşenler atomik olarak uygulandı ({apply_res['applied_count']} dosya güncellendi).")
         except (downloader_mod.DownloadError, applier_mod.ApplyError, ValueError) as exc:
@@ -1120,7 +1134,13 @@ class HubAPI:
                 raw = json.loads(binds_path.read_text(encoding="utf-8-sig"))
                 if isinstance(raw, list):
                     items = raw
+                else:
+                    shutil.copy2(binds_path, binds_path.with_name(binds_path.name + ".corrupt.bak"))
             except Exception:
+                try:
+                    shutil.copy2(binds_path, binds_path.with_name(binds_path.name + ".corrupt.bak"))
+                except OSError:
+                    pass
                 items = []
 
         scancode = int(kb.get("scancode") or 20)

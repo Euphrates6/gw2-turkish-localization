@@ -17,6 +17,8 @@ HUB_DOWNLOAD_URL = f"https://github.com/{GITHUB_REPO}/releases/latest/download/G
 RELEASES_URL = f"https://github.com/{GITHUB_REPO}/releases/latest"
 
 _SHA256_RE = re.compile(r"^[0-9a-fA-F]{64}$")
+_COMP_ID_RE = re.compile(r"^[A-Za-z0-9._-]+$")
+ALLOWED_BASE_PREFIX = f"https://github.com/{GITHUB_REPO}/releases/download/"
 
 
 @dataclass(frozen=True)
@@ -124,6 +126,8 @@ def validate_schema(data: dict) -> Manifest:
         raise ValueError(f"manifest base_url must use https:// (got {base_url!r})")
     if not base_url.endswith("/"):
         base_url += "/"
+    if not base_url.startswith(ALLOWED_BASE_PREFIX):
+        raise ValueError(f"manifest base_url host/path not allowed (got {base_url!r})")
 
     install = data.get("install") or {}
     if not isinstance(install, dict):
@@ -142,6 +146,9 @@ def validate_schema(data: dict) -> Manifest:
 
     components: list[Component] = []
     for comp_id, cdata in raw_comps.items():
+        cid_str = str(comp_id)
+        if not _COMP_ID_RE.match(cid_str) or cid_str in (".", "..") or ".." in cid_str:
+            raise ValueError(f"invalid component id: {comp_id!r}")
         if not isinstance(cdata, dict):
             raise ValueError(f"component {comp_id!r} must be an object")
         target = str(cdata.get("target") or "game")
@@ -221,17 +228,29 @@ def load_manifest_file(path: Path) -> Manifest:
     return parse_manifest_bytes(path.read_bytes())
 
 
-def fetch_manifest(url: str = MANIFEST_URL, timeout: float = 8.0) -> Manifest:
-    """Downloads and validates manifest.json using direct release URL (no GitHub API rate limit)."""
-    req = urllib.request.Request(
-        url,
-        headers={
-            "User-Agent": f"GW2-TR-Hub/{VERSION}",
-            "Cache-Control": "no-cache",
-        },
-    )
+def fetch_manifest(url: str = MANIFEST_URL, timeout: float = 8.0, *, verify_sha256: bool = True) -> Manifest:
+    """Downloads and validates manifest.json using direct release URL (no GitHub API rate limit).
+    When verify_sha256 is True, also fetches `<url>.sha256` and verifies the SHA-256 digest."""
+    headers = {
+        "User-Agent": f"GW2-TR-Hub/{VERSION}",
+        "Cache-Control": "no-cache",
+    }
+    req = urllib.request.Request(url, headers=headers)
     with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return parse_manifest_bytes(resp.read())
+        raw = resp.read()
+
+    if verify_sha256:
+        sha_req = urllib.request.Request(url + ".sha256", headers=headers)
+        with urllib.request.urlopen(sha_req, timeout=timeout) as sresp:
+            sha_line = sresp.read().decode("utf-8").strip()
+        expected_sha = sha_line.split()[0].lower() if sha_line else ""
+        if not _SHA256_RE.match(expected_sha):
+            raise ValueError(f"invalid manifest.json.sha256 format: {sha_line!r}")
+        actual_sha = hashlib.sha256(raw).hexdigest().lower()
+        if actual_sha != expected_sha:
+            raise ValueError(f"manifest.json sha256 mismatch: expected {expected_sha}, got {actual_sha}")
+
+    return parse_manifest_bytes(raw)
 
 
 def resolve_target_path(manifest: Manifest, target_key: str, rel_path: str, game_dir: Path) -> Path:

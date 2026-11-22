@@ -1,16 +1,20 @@
-"""Assembles the official standalone manual zip package: GW2_TR_v0.12.0_Manuel_Paket.zip
+"""Assembles an optional standalone manual zip package using the single VERSION source.
 Gamers can extract this zip directly into their Guild Wars 2 root folder.
 """
 from __future__ import annotations
 
 import shutil
+import sys
 import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "src"))
+from version import VERSION  # noqa: E402
+
 DIST_DIR = ROOT / "dist"
 DIST_DIR.mkdir(parents=True, exist_ok=True)
-ZIP_OUT = DIST_DIR / "GW2_TR_v0.12.0_Manuel_Paket.zip"
+ZIP_OUT = DIST_DIR / f"GW2_TR_v{VERSION}_Manuel_Paket.zip"
 
 
 def main() -> None:
@@ -19,16 +23,18 @@ def main() -> None:
         shutil.rmtree(temp_dir, ignore_errors=True)
     temp_dir.mkdir(parents=True, exist_ok=True)
 
-    # 1. Root DLLs
+    # 1. Root DLL (Raidcore Nexus — no version.dll proxy)
     assets = ROOT / "assets"
     shutil.copy2(assets / "d3d11.dll", temp_dir / "d3d11.dll")
-    shutil.copy2(assets / "version.dll", temp_dir / "version.dll")
 
     # 2. Addons folder
     addons_dir = temp_dir / "addons"
     addons_dir.mkdir(parents=True, exist_ok=True)
     shutil.copy2(assets / "addons" / "text_translator.dll", addons_dir / "text_translator.dll")
-    shutil.copy2(assets / "addons" / "turkish_font.dll", addons_dir / "turkish_font.dll")
+    font_dll = ROOT / "font-injector" / "addon" / "turkish_font.dll"
+    if not font_dll.is_file():
+        font_dll = assets / "addons" / "turkish_font.dll"
+    shutil.copy2(font_dll, addons_dir / "turkish_font.dll")
 
     # 3. Text Translator modules
     mod_dir = addons_dir / "text_translator" / "modules" / "local_translator_tr"
@@ -47,9 +53,11 @@ def main() -> None:
     )
     (mod_dir / "module.toml").write_text(module_toml, encoding="utf-8")
 
-    # Also copy Python source files as alternative/fallback
-    for py_file in ("lt_module.py", "lt_server.py", "patch_db.py", "editor.py", "map_upload.py", "glossary_tr.default.json"):
+    # Also copy Python source files + VERSION as fallback
+    for py_file in ("version.py", "lt_module.py", "lt_server.py", "patch_db.py", "editor.py", "map_upload.py", "glossary_tr.default.json"):
         shutil.copy2(ROOT / "src" / py_file, mod_dir / py_file)
+    if (ROOT / "VERSION").is_file():
+        shutil.copy2(ROOT / "VERSION", mod_dir / "VERSION")
 
     # 4. TR directory (model, glossary, config, contributor)
     tr_dir = mod_dir / "TR"

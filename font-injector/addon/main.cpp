@@ -30,7 +30,7 @@ static std::atomic<bool> g_unloading{false};
 
 // Function pointer typedef for FileArchive::ReadFile
 typedef void* (*FnFileArchive_ReadFile)(void* pArchive, uint32_t fileId, uint8_t flags, uint32_t* pOutLen, void* pExtra);
-static FnFileArchive_ReadFile s_orig_ReadFile = nullptr;
+static std::atomic<FnFileArchive_ReadFile> s_orig_ReadFile{nullptr};
 static void* s_target_ReadFile = nullptr;
 
 // Helper to check if a file exists
@@ -70,7 +70,7 @@ static bool IsEarlyBootHookActive()
 // Detour implementation
 void* Detour_ReadFile(void* pArchive, uint32_t fileId, uint8_t flags, uint32_t* pOutLen, void* pExtra)
 {
-    FnFileArchive_ReadFile origFn = s_orig_ReadFile;
+    FnFileArchive_ReadFile origFn = s_orig_ReadFile.load(std::memory_order_acquire);
     if (!g_unloading.load(std::memory_order_acquire))
     {
         AtlasEntry foundEntry = { nullptr, 0 };
@@ -275,14 +275,16 @@ void AddonLoad(AddonAPI_t* aAPI)
 
     if (APIDefs->MinHook_Create && APIDefs->MinHook_Enable)
     {
+        FnFileArchive_ReadFile origTrampoline = nullptr;
         EMHStatus status = APIDefs->MinHook_Create(
             s_target_ReadFile,
             (LPVOID)Detour_ReadFile,
-            (LPVOID*)&s_orig_ReadFile
+            (LPVOID*)&origTrampoline
         );
 
         if (status == MH_OK)
         {
+            s_orig_ReadFile.store(origTrampoline, std::memory_order_release);
             status = APIDefs->MinHook_Enable(s_target_ReadFile);
             if (status == MH_OK) {
                 char msg[128];
@@ -310,12 +312,13 @@ void AddonUnload()
         if (APIDefs->MinHook_Remove) {
             APIDefs->MinHook_Remove(s_target_ReadFile);
         }
+        Sleep(50);
         APIDefs->Log(LOGL_INFO, "TurkishFont", "Addon unloaded, hook removed.");
     }
 
     AcquireSRWLockExclusive(&g_atlasLock);
     s_target_ReadFile = nullptr;
-    s_orig_ReadFile = nullptr;
+    s_orig_ReadFile.store(nullptr, std::memory_order_release);
     g_atlases.clear();
     g_diskAtlasBlob.clear();
     g_activeBlobPtr = nullptr;

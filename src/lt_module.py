@@ -630,6 +630,16 @@ def main() -> int:
                             encoding="utf-8")
         else:
             flag.unlink(missing_ok=True)
+        # Keep contributor.json in sync so it does not override --show-keys on next startup
+        cpath = args.lang_dir / editor.CONTRIBUTOR_FILE
+        if cpath.is_file():
+            try:
+                cdata = json.loads(cpath.read_text(encoding="utf-8-sig"))
+                if isinstance(cdata, dict):
+                    cdata["show_keys"] = mode if mode in ("text", "all") else False
+                    cpath.write_text(json.dumps(cdata, ensure_ascii=False, indent=2), encoding="utf-8")
+            except Exception:
+                pass
         cfg = load_tr_config(args.lang_dir, module_dir)
         map_db = args.lang_dir / lang.file("map", ".db")
         n = sync_key_tags(args.cache_db, CACHE_KEY, mode, cfg["char_mode"], map_db=map_db)
@@ -804,7 +814,7 @@ def main() -> int:
                                        max(0.0, args.upload_first)).start()
             except ValueError as exc:
                 log.warning("map upload off: %s", exc)
-    if not args.no_update:
+    if not args.no_update and bool(cfg.get("auto_update", True)):
         def glossary_changed() -> None:
             engine.sync_glossary()
             try:

@@ -775,8 +775,24 @@ class GlossaryUpdater(threading.Thread):
             raise ValueError(f"download incomplete ({len(body)} of {int(length)} bytes)")
         data = json.loads(body.decode("utf-8"))
         self.validate(data)
+        # Preserve any user-customized entries in local glossary_tr.json (local overrides remote)
+        if self.path.is_file():
+            try:
+                local_data = json.loads(self.path.read_text(encoding="utf-8-sig"))
+                if isinstance(local_data, dict):
+                    merged = dict(data)
+                    for section in ("exact", "terms", "patterns", "feminine"):
+                        rem_sec = data.get(section)
+                        loc_sec = local_data.get(section)
+                        if isinstance(rem_sec, dict) and isinstance(loc_sec, dict):
+                            comb = dict(rem_sec)
+                            comb.update(loc_sec)
+                            merged[section] = comb
+                    data = merged
+            except Exception as exc:  # noqa: BLE001
+                log.warning("glossary merge skipped (%s): keeping remote glossary", exc)
         tmp = self.path.with_suffix(".tmp")
-        tmp.write_bytes(body)
+        tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
         os.replace(tmp, self.path)
         if etag:
             self.etag_path.write_text(etag)
@@ -1433,7 +1449,8 @@ class Engine:
         return {"terms": {str(k): str(v) for k, v in data["terms"].items()},
                 "exact": None if data.get("exact") is None else
                 {str(k): str(v) for k, v in data["exact"].items()},
-                "protect": int(data.get("protect", 1))}
+                "protect": int(data.get("protect", 1)),
+                "char_mode": str(data.get("char_mode", ""))}
 
     def outdated(self, line: str, version: int) -> bool:
         return ((version < 9 and recipe_split(line) is not None and "Mini " in line)
@@ -1457,10 +1474,12 @@ class Engine:
         new_exact = dict(self.glossary.exact)
         purge: set[str] = set()
         english: set[str] = set()
+        cur_char_mode = str(getattr(self, "char_mode", "off") or "off")
         with self.cv:
             self.gen += 1
             old = self._read_snapshot() if self.snapshot_path else None
-            if old is None:
+            char_mode_changed = old is not None and bool(old.get("char_mode")) and old.get("char_mode") != cur_char_mode
+            if old is None or char_mode_changed:
                 changed = None
                 dropped = len(self.cache)
                 self.cache.clear()
@@ -1509,10 +1528,11 @@ class Engine:
                                         and self.cache_path.exists()):
                     self._rewrite_cache()
                 if self.snapshot_path and (changed is None or changed or upgrade
-                                           or old["exact"] is None):
+                                           or old["exact"] is None or old.get("char_mode") != cur_char_mode):
                     tmp = self.snapshot_path.with_suffix(".tmp")
                     tmp.write_text(json.dumps({"terms": new_terms, "exact": new_exact,
-                                               "protect": PROTECT_VERSION},
+                                               "protect": PROTECT_VERSION,
+                                               "char_mode": cur_char_mode},
                                               ensure_ascii=False, indent=0), encoding="utf-8")
                     os.replace(tmp, self.snapshot_path)
             except OSError as exc:
