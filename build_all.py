@@ -161,16 +161,28 @@ def build_hub_exe(*, bundle_assets: bool = False) -> Path:
     return hub_zip
 
 
-def assemble_release() -> Path:
-    """Assembles release_v{VERSION}/ with all 5 manifest assets + Hub ZIP + manifest.json."""
+def assemble_release(*, reuse_from: Path | None = None) -> Path:
+    """Assembles release_v{VERSION}/ with all 5 manifest assets + Hub ZIP + manifest.json.
+    When `reuse_from` is provided, unchanged heavy assets (Local_Translator_TR.exe,
+    opus-mt-en-tr-ct2.zip, d3d11.dll, text_translator.dll) are copied byte-for-byte from
+    the previous release directory so incremental updates only download changed components."""
     rel_dir = ROOT / f"release_v{VERSION}"
     rel_dir.mkdir(parents=True, exist_ok=True)
+
+    def _pick(name: str, built_path: Path) -> Path:
+        if reuse_from is not None:
+            cand = reuse_from / name
+            if cand.is_file():
+                print(f"[+] Reusing unchanged asset from {reuse_from.name}: {name}")
+                return cand
+        return built_path
+
     copies = [
         (ROOT / "dist" / "GW2_TR_Hub.zip", rel_dir / "GW2_TR_Hub.zip"),
-        (ROOT / "dist" / "Local_Translator_TR.exe", rel_dir / "Local_Translator_TR.exe"),
+        (_pick("Local_Translator_TR.exe", ROOT / "dist" / "Local_Translator_TR.exe"), rel_dir / "Local_Translator_TR.exe"),
         (ROOT / "font-injector" / "addon" / "turkish_font.dll", rel_dir / "turkish_font.dll"),
-        (ROOT / "assets" / "d3d11.dll", rel_dir / "d3d11.dll"),
-        (ROOT / "assets" / "addons" / "text_translator.dll", rel_dir / "text_translator.dll"),
+        (_pick("d3d11.dll", ROOT / "assets" / "d3d11.dll"), rel_dir / "d3d11.dll"),
+        (_pick("text_translator.dll", ROOT / "assets" / "addons" / "text_translator.dll"), rel_dir / "text_translator.dll"),
     ]
     for src, dst in copies:
         if not src.is_file():
@@ -178,14 +190,18 @@ def assemble_release() -> Path:
         shutil.copy2(src, dst)
 
     model_zip = rel_dir / "opus-mt-en-tr-ct2.zip"
-    model_dir = ROOT / "TR" / "model"
-    if model_dir.is_dir() and any(model_dir.iterdir()):
-        with zipfile.ZipFile(model_zip, "w", zipfile.ZIP_DEFLATED) as zf:
-            for p in sorted(model_dir.iterdir()):
-                if p.is_file():
-                    zf.write(p, p.name)
-    elif not model_zip.is_file():
-        raise SystemExit(f"ERROR: Neither {model_dir} nor {model_zip} exists for release packaging.")
+    if reuse_from is not None and (reuse_from / "opus-mt-en-tr-ct2.zip").is_file():
+        print(f"[+] Reusing unchanged asset from {reuse_from.name}: opus-mt-en-tr-ct2.zip")
+        shutil.copy2(reuse_from / "opus-mt-en-tr-ct2.zip", model_zip)
+    else:
+        model_dir = ROOT / "TR" / "model"
+        if model_dir.is_dir() and any(model_dir.iterdir()):
+            with zipfile.ZipFile(model_zip, "w", zipfile.ZIP_DEFLATED) as zf:
+                for p in sorted(model_dir.iterdir()):
+                    if p.is_file():
+                        zf.write(p, p.name)
+        elif not model_zip.is_file():
+            raise SystemExit(f"ERROR: Neither {model_dir} nor {model_zip} exists for release packaging.")
 
     run([sys.executable, str(ROOT / "tools" / "build_manifest.py"), "--assets-dir", str(rel_dir), "--version", VERSION])
     print(f"[+] Release directory ready: {rel_dir}")
@@ -199,6 +215,7 @@ def main() -> int:
     parser.add_argument("--bundled", action="store_true", help="Embed TR/model and DLLs into Hub (legacy)")
     parser.add_argument("--legacy-proxy", action="store_true", help="Also build deprecated Rust version.dll proxy")
     parser.add_argument("--release", action="store_true", help="Assemble release_v{VERSION}/ and generate manifest.json")
+    parser.add_argument("--reuse-from", type=Path, default=None, help="Reuse unchanged heavy assets (engine/model/third-party DLLs) from a previous release directory")
     args = parser.parse_args()
 
     if args.dll_only:
@@ -211,12 +228,13 @@ def main() -> int:
         build_font_injector_dll()
         if args.legacy_proxy:
             build_legacy_proxy_dll()
-        build_local_translator_exe()
+        if args.reuse_from is None or not (args.reuse_from / "Local_Translator_TR.exe").is_file():
+            build_local_translator_exe()
 
     build_hub_exe(bundle_assets=args.bundled)
 
     if args.release:
-        assemble_release()
+        assemble_release(reuse_from=args.reuse_from)
     return 0
 
 
