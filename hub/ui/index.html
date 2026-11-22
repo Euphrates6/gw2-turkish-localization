@@ -146,7 +146,7 @@
                 <div class="flex flex-col gap-1">
                     <div class="flex items-center gap-3">
                         <h1 class="text-2xl font-medium tracking-tight text-ide-text">Mod Installation Hub</h1>
-                        <span class="px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider bg-ide-panel border border-ide-border text-ide-text rounded-sm">TR ONLY • v0.12.0</span>
+                        <span id="badge-app-version" class="px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider bg-ide-panel border border-ide-border text-ide-text rounded-sm">TR ONLY • v0.13.0</span>
                     </div>
                     <div class="flex items-center gap-2 text-ide-muted text-xs font-mono">
                         <span>Workspace:</span>
@@ -272,7 +272,7 @@
                             </div>
                             <div class="bg-ide-hover border border-ide-border p-3 flex justify-between items-center rounded-sm">
                                 <span class="text-xs font-mono text-ide-text">Target Core</span>
-                                <span id="ver-latest" class="text-xs font-mono text-ide-text font-bold">v0.12.0-TR</span>
+                                <span id="ver-latest" class="text-xs font-mono text-ide-text font-bold">v0.13.0-TR</span>
                             </div>
                         </div>
 
@@ -282,7 +282,7 @@
                                 <div><span class="text-ide-text">&gt; Initializing GW2 TR Mod Installation Hub... done.</span></div>
                                 <div class="flex gap-2">
                                     <span class="text-ide-text">[+]</span>
-                                    <span>NikeGipple gw2-nexus-local-translator v0.12.0 çekirdeği yalnızca Türkçe (TR) olarak yapılandırıldı.</span>
+                                    <span id="log-core-version">GW2-TR Yerel Çeviri Çekirdeği (v0.13.0) yalnızca Türkçe (TR) olarak yapılandırıldı.</span>
                                 </div>
                                 <div class="flex gap-2">
                                     <span class="text-ide-text">[+]</span>
@@ -410,7 +410,7 @@
                                     <button onclick="switchTab('editor')" class="px-2 py-1 text-[10px] font-mono bg-ide-bg border border-ide-border text-ide-muted hover:text-ide-text rounded-sm transition-colors">
                                         Çeviri Düzenle <i class="ph ph-pencil-simple"></i>
                                     </button>
-                                    <span class="text-xs font-mono text-ide-muted w-20 text-right">v0.12.0</span>
+                                    <span data-ver="v" class="text-xs font-mono text-ide-muted w-20 text-right">v0.13.0</span>
                                     <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                         <button onclick="toggleDrawer('drawer-lt')" title="Çeviri Motoru ve Eşya/Mekan Koruma Ayarları" class="p-1 text-ide-muted hover:text-ide-text hover:bg-ide-hover rounded-sm transition-colors"><i class="ph ph-sliders"></i></button>
                                     </div>
@@ -461,7 +461,7 @@
                                     </div>
                                 </div>
                                 <div class="flex items-center justify-end gap-4 w-2/5">
-                                    <span class="text-xs font-mono text-ide-muted w-20 text-right">v1.1.0</span>
+                                    <span class="text-xs font-mono text-ide-muted w-20 text-right">v1.2.0</span>
                                     <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                         <button onclick="toggleDrawer('drawer-font')" title="Karakter Dönüşüm Detayları" class="p-1 text-ide-muted hover:text-ide-text hover:bg-ide-hover rounded-sm transition-colors"><i class="ph ph-sliders"></i></button>
                                     </div>
@@ -629,7 +629,7 @@
                             <i class="ph ph-info text-base"></i>
                             Hakkında
                         </h2>
-                        <span class="text-[11px] font-mono text-ide-muted">v0.12.0</span>
+                        <span data-ver="v" class="text-[11px] font-mono text-ide-muted">v0.13.0</span>
                     </div>
 
                     <div class="p-6 flex items-center gap-5 border-b border-ide-border">
@@ -646,15 +646,15 @@
                     <div class="flex flex-col font-mono text-xs">
                         <div class="flex justify-between px-6 py-2.5 border-b border-ide-border">
                             <span class="text-ide-muted">Uygulama Sürümü</span>
-                            <span class="text-ide-text">v0.12.0</span>
+                            <span data-ver="v" class="text-ide-text">v0.13.0</span>
                         </div>
                         <div class="flex justify-between px-6 py-2.5 border-b border-ide-border">
                             <span class="text-ide-muted">Çeviri Motoru</span>
-                            <span class="text-ide-text">Local Translator TR v0.12.0 (OPUS-MT / CTranslate2)</span>
+                            <span id="about-engine-version" class="text-ide-text">Local Translator TR v0.13.0 (OPUS-MT / CTranslate2)</span>
                         </div>
                         <div class="flex justify-between px-6 py-2.5 border-b border-ide-border">
                             <span class="text-ide-muted">Font Enjektörü</span>
-                            <span class="text-ide-text">GW2 Turkish Font Injector v1.1.0</span>
+                            <span class="text-ide-text">GW2 Turkish Font Injector v1.2.0</span>
                         </div>
                         <div class="flex justify-between px-6 py-2.5 border-b border-ide-border">
                             <span class="text-ide-muted">Eklenti Çerçevesi</span>
@@ -1008,7 +1008,15 @@
             document.getElementById("dl-status-model").textContent = appState.model_installed ? "Hazır (OPUS-MT CT2)" : "Kurulmaya Hazır";
             document.getElementById("dl-status-glossary").textContent = appState.glossary_count ? `${appState.glossary_count} Terim Aktif` : "Hazır";
             document.getElementById("dl-status-font").textContent = appState.font_injector ? "Aktif (53 Atlas)" : "Devre Dışı (6 Harf Modu)";
-            document.getElementById("ver-installed").textContent = appState.lt_installed ? "v0.12.0-TR" : "Kurulu Değil";
+            const appVer = appState.version || "0.13.0";
+            document.getElementById("ver-installed").textContent = appState.lt_installed ? `v${appVer}-TR` : "Kurulu Değil";
+            const badgeVer = document.getElementById("badge-app-version");
+            if (badgeVer) badgeVer.textContent = `TR ONLY • v${appVer}`;
+            const logCoreVer = document.getElementById("log-core-version");
+            if (logCoreVer) logCoreVer.textContent = `GW2-TR Yerel Çeviri Çekirdeği (v${appVer}) yalnızca Türkçe (TR) olarak yapılandırıldı.`;
+            const aboutEngVer = document.getElementById("about-engine-version");
+            if (aboutEngVer) aboutEngVer.textContent = `Local Translator TR v${appVer} (OPUS-MT / CTranslate2)`;
+            document.querySelectorAll('[data-ver="v"]').forEach(el => { el.textContent = `v${appVer}`; });
         }
 
         async function apiCall(method, ...args) {
@@ -1390,7 +1398,7 @@
             const info = await apiCall("check_for_updates");
             if (!info) return;
             latestUpdateInfo = info;
-            const cur = info.current_version || appState.version || "0.12.0";
+            const cur = info.current_version || appState.version || "0.13.0";
             const latest = info.latest_version || cur;
             const latestEl = document.getElementById("ver-latest");
             if (latestEl) latestEl.textContent = `v${latest}-TR`;
